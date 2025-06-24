@@ -1,0 +1,31 @@
+:root {
+    --bs-primary: #ff6f00;
+    --bs-primary-rgb: 255, 111, 0;
+}
+ul.nav-tabs > li.nav-item > .nav-link {
+    border: none;
+    border-bottom: 2px solid transparent;
+    background-color: transparent;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    margin-bottom: -1px;
+    transition: border-color 0.3s ease, color 0.3s ease;
+}
+
+ul.nav-tabs > li.nav-item > .nav-link.active {
+    color: #5327ef;
+    font-weight: 600;
+    position: relative;
+}
+
+ul.nav-tabs > li.nav-item > .nav-link.active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    width: 100%;
+    background: linear-gradient(135deg, #5327ef 0%, #ff5f6d 100%);
+    border-radius: 2px;
+}
