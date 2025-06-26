@@ -39,7 +39,7 @@ jobs:
       - name: 🧰 Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.4"
+          php-version: "8.2"
           extensions: mbstring, bcmath, intl
           tools: composer
 
@@ -72,10 +72,7 @@ jobs:
       - name: 📤 Upload Laravel Tarball
         run: scp -P 2638 -i ~/.ssh/ssh.key laravel.tar.gz production-server:${{ secrets.DEPLOY_PATH }}/laravel.tar.gz
 
-      - name: 📤 Upload Vite Assets
-        run: scp -P 2638 -i ~/.ssh/ssh.key -r public/build production-server:${{ secrets.DEPLOY_PATH }}/public/
-
-      - name: ✅ Extract App and Run Laravel Commands
+      - name: ✅ Extract App on Remote Server (and create public dir)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -85,7 +82,20 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             tar -xzf laravel.tar.gz && rm laravel.tar.gz
+            mkdir -p public/build
 
+      - name: 📤 Upload Vite Assets
+        run: scp -P 2638 -i ~/.ssh/ssh.key -r public/build/* production-server:${{ secrets.DEPLOY_PATH }}/public/build/
+
+      - name: 🛠️ Final Laravel Commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 2638
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
             php artisan migrate --force --seed
             php artisan config:cache
             php artisan route:cache
