@@ -1,4 +1,4 @@
-name: 🚀 Deploy SuperSpot Wifi
+name: 🚀 Deploy SuperSpot Wifi (via SCP)
 
 on:
   workflow_run:
@@ -10,10 +10,31 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      BUILD_PATH: public/build
 
     steps:
       - name: 🧾 Checkout Code
         uses: actions/checkout@v3
+
+      - name: 🔐 Create SSH Key File
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh.key
+          chmod 600 ~/.ssh/ssh.key
+        shell: bash
+
+      - name: 🖧 Setup SSH Config
+        run: |
+          cat >>~/.ssh/config <<END
+          Host ssh
+            HostName ${{ secrets.SSH_HOST }}
+            User ${{ secrets.SSH_USER }}
+            Port 2638
+            IdentityFile ~/.ssh/ssh.key
+            StrictHostKeyChecking no
+          END
+        shell: bash
 
       - name: 🧰 Setup PHP
         uses: shivammathur/setup-php@v2
@@ -35,43 +56,36 @@ jobs:
           npm ci
           npm run build
 
-      - name: 🧹 Optimize
+      - name: 📤 Transfer Laravel App (excluding build tools)
         run: |
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
+          tar --exclude=node_modules \
+              --exclude=tests \
+              --exclude=.git \
+              --exclude=.github \
+              --exclude=.env \
+              --exclude=resources \
+              --exclude=vite.config.js \
+              --exclude=webpack.mix.js \
+              -czf laravel.tar.gz .
+          scp -P 2638 -i ~/.ssh/ssh.key laravel.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/laravel.tar.gz
 
-      - name: ✅ Add Host to Known Hosts
+      - name: 📤 Transfer Built Assets
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -p 2638 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          scp -P 2638 -i ~/.ssh/ssh.key -r public/build ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/public/
 
-      - name: 🔐 Add SSH Key
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: ✅ Extract and Run Laravel Commands on Server
+        uses: appleboy/ssh-action@master
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: 📤 Deploy Laravel App (excluding build tools)
-        run: |
-          rsync -avz -e "ssh -p 2638" \
-            --exclude="node_modules" \
-            --exclude="tests" \
-            --exclude=".git" \
-            --exclude=".github" \
-            --exclude=".env" \
-            --exclude="resources" \
-            --exclude="vite.config.js" \
-            --exclude="webpack.mix.js" \
-            ./ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}
-
-      - name: 📤 Deploy Built Assets (Vue)
-        run: |
-          rsync -avz -e "ssh -p 2638" public/build/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/public/build/
-
-      - name: ✅ Final Touch (e.g., migrate)
-        run: |
-          ssh -p 2638 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 2638
+          script: |
             cd ${{ secrets.DEPLOY_PATH }}
+            tar -xzf laravel.tar.gz
+            rm laravel.tar.gz
+
             php artisan migrate --force --seed
-          EOF
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
