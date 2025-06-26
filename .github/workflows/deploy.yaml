@@ -27,7 +27,7 @@ jobs:
       - name: 🖧 Setup SSH Config
         run: |
           cat >>~/.ssh/config <<END
-          Host ssh
+          Host production-server
             HostName ${{ secrets.SSH_HOST }}
             User ${{ secrets.SSH_USER }}
             Port 2638
@@ -39,7 +39,7 @@ jobs:
       - name: 🧰 Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          php-version: "8.4"
           extensions: mbstring, bcmath, intl
           tools: composer
 
@@ -56,7 +56,7 @@ jobs:
           npm ci
           npm run build
 
-      - name: 📤 Transfer Laravel App (excluding build tools)
+      - name: 📦 Create Laravel App Tarball
         run: |
           tar --exclude=node_modules \
               --exclude=tests \
@@ -66,14 +66,16 @@ jobs:
               --exclude=resources \
               --exclude=vite.config.js \
               --exclude=webpack.mix.js \
+              --warning=no-file-changed \
               -czf laravel.tar.gz . || true
-          scp -P 2638 -i ~/.ssh/ssh.key laravel.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/laravel.tar.gz
 
-      - name: 📤 Transfer Built Assets
-        run: |
-          scp -P 2638 -i ~/.ssh/ssh.key -r public/build ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/public/
+      - name: 📤 Upload Laravel Tarball
+        run: scp -P 2638 -i ~/.ssh/ssh.key laravel.tar.gz production-server:${{ secrets.DEPLOY_PATH }}/laravel.tar.gz
 
-      - name: ✅ Extract and Run Laravel Commands on Server
+      - name: 📤 Upload Vite Assets
+        run: scp -P 2638 -i ~/.ssh/ssh.key -r public/build production-server:${{ secrets.DEPLOY_PATH }}/public/
+
+      - name: ✅ Extract App and Run Laravel Commands
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -82,8 +84,7 @@ jobs:
           port: 2638
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
-            tar -xzf laravel.tar.gz
-            rm laravel.tar.gz
+            tar -xzf laravel.tar.gz && rm laravel.tar.gz
 
             php artisan migrate --force --seed
             php artisan config:cache
