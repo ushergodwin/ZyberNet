@@ -59,6 +59,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [VoucherController::class, 'getVoucher'])->name('configuration.voucher');
         //get voucher transaction details
         Route::get('/{id}/transaction', [VoucherController::class, 'getVoucherTransaction'])->name('configuration.voucherTransaction');
+        // save transaction
+        Route::post('/{id}/transaction', [VoucherController::class, 'saveVoucherTransaction'])->name('configuration.saveVoucherTransaction');
+        // generate voucher
+        Route::post('/generate', [VoucherController::class, 'generateVoucher'])->name('configuration.generateVoucher');
     });
 
     //admin routes

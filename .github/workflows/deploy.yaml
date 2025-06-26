@@ -1,0 +1,73 @@
+name: 🚀 Deploy SuperSpot Wifi
+
+on:
+  workflow_run:
+    workflows: ["SuperSpot Wifi CI"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧾 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🧰 Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, bcmath, intl
+          tools: composer
+
+      - name: ⚙️ Install PHP Dependencies
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: 📦 Install JS Dependencies & Build Assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: 🧹 Laravel Optimizations
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+      - name: 🔐 Add SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-passphrase: ${{ secrets.SSH_PASSPHRASE }}
+
+      - name: 📤 Deploy Laravel App
+        run: |
+          rsync -avz \
+            --exclude="node_modules" \
+            --exclude="tests" \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude=".env" \
+            --exclude="resources" \
+            --exclude="vite.config.js" \
+            --exclude="webpack.mix.js" \
+            ./ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}
+
+      - name: 📤 Deploy Built Assets (Vue)
+        run: |
+          rsync -avz public/build/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/public/build/
+
+      - name: ✅ Final Touch (e.g., migrate)
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd ${{ secrets.DEPLOY_PATH }}
+            php artisan migrate --force --seed
+          EOF

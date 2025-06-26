@@ -6,7 +6,8 @@ use RouterOS\Client;
 use RouterOS\Query;
 use App\Models\RouterConfiguration;
 use App\Models\RouterLog;
-use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 /**
  * MikroTikService
@@ -149,5 +150,89 @@ class MikroTikService
                 'message' => 'Failed to connect to MikroTik router: ' . $th->getMessage(),
             ];
         }
+    }
+
+
+    public function pushProfileToRouter($profile)
+    {
+        try {
+            // Step 1: Check if profile already exists on router
+            $checkQuery = new Query('/ip/hotspot/user/profile/print');
+            $checkQuery->where('name', $profile->profile_name);
+            $existingProfiles = $this->client->query($checkQuery)->read();
+
+            // If it exists, skip creation
+            if (!empty($existingProfiles)) {
+                RouterLog::create([
+                    'voucher_id' => null,
+                    'action' => 'push_profile_to_router',
+                    'success' => true,
+                    'message' => "Profile '{$profile->profile_name}' already exists on router",
+                    'is_manual' => false,
+                    'router_name' => $this->router->name ?? 'Unknown Router',
+                ]);
+                return $existingProfiles[0]; // return existing profile info
+            }
+
+            // Step 2: Prepare and add new profile
+            $query = new Query('/ip/hotspot/user/profile/add');
+            $query->equal('name', $profile->profile_name)
+                ->equal('shared-users', $profile->shared_users);
+
+            if ($profile->rate_limit) {
+                $query->equal('rate-limit', $profile->rate_limit);
+            }
+            if ($profile->session_timeout) {
+                $query->equal('session-timeout', $profile->session_timeout);
+            }
+            if ($profile->limit_bytes_total) {
+                $query->equal('limit-bytes-total', $profile->limit_bytes_total);
+            }
+
+            $data = $this->client->query($query)->read();
+
+            // Step 3: Log success
+            RouterLog::create([
+                'voucher_id' => null,
+                'action' => 'push_profile_to_router',
+                'success' => true,
+                'message' => "Profile '{$profile->profile_name}' successfully pushed to router",
+                'is_manual' => false,
+                'router_name' => $this->router->name ?? 'Unknown Router',
+            ]);
+
+            return $data;
+        } catch (\Throwable $th) {
+            // Step 4: Log failure
+            RouterLog::create([
+                'voucher_id' => null,
+                'action' => 'push_profile_to_router',
+                'success' => false,
+                'message' => $th->getMessage(),
+                'is_manual' => false,
+                'router_name' => $this->router->name ?? 'Unknown Router',
+            ]);
+
+            Log::error('Failed to push profile to router: ' . $th->getMessage(), [
+                'router' => $this->router->name ?? 'Unknown Router',
+                'profile' => $profile->name,
+                'trace' => $th->getTrace(),
+            ]);
+
+            throw new \Exception('Failed to push profile to router: ' . $th->getMessage());
+        }
+    }
+
+
+    static  function convertToBytes(int|float $value, string $unit = 'MB'): int
+    {
+        $unit = strtoupper(trim($unit));
+
+        return match ($unit) {
+            'GB' => (int)($value * 1024 * 1024 * 1024),
+            'MB' => (int)($value * 1024 * 1024),
+            'KB' => (int)($value * 1024),
+            default => throw new InvalidArgumentException("Unsupported unit: $unit"),
+        };
     }
 }

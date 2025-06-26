@@ -20,7 +20,7 @@ if (token) {
     axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 }
 
-const appName = import.meta.env.VITE_APP_NAME || "ZyberNet";
+const appName = import.meta.env.VITE_APP_NAME || "SuperSpot Wifi ";
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

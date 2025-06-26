@@ -4,13 +4,21 @@ import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
 import { showLoader, hideLoader, swalNotification } from '@/mixins/helpers.mixin.js';
 import { notify } from '@/mixins/notify';
+const props = defineProps({
+    package_id: {
+        type: Number,
+        default: null
+    },
+    csrfToken: {
+        type: String,
+        default: ""
+    }
+});
 const phoneNumber = ref('');
-const selectedPackage = ref(null);
 const transactionId = ref(null);
 const voucher = ref(null);
 const checkingStatus = ref(false);
 const processingPayment = ref(false);
-
 const formatPhoneNumber = (number) => {
     // Format phone number to international format if needed
     /// if the number starts with 0, replace it with +256
@@ -34,13 +42,16 @@ async function purchaseVoucher() {
             swalNotification('warning', 'Please enter phone number');
             return;
         }
-        if (!selectedPackage.value) {
-            swalNotification('warning', 'Please select a package');
-            return;
-        }
         // phone number length must be >= 9 and <= 13
         if (phoneNumber.value.length < 9 || phoneNumber.value.length > 13) {
             swalNotification('warning', 'Phone number must be between 9 and 13 digits');
+            return;
+        }
+        if (!props.package_id) {
+            swalNotification('warning', 'No package was selected. Please go back and select a package.')
+                .then(() => {
+                    window.history.back();
+                });
             return;
         }
         // format phone number
@@ -49,7 +60,7 @@ async function purchaseVoucher() {
         showLoader();
         const response = await axios.post('/api/payments/voucher', {
             phone_number: phoneNumber.value,
-            package_id: selectedPackage.value
+            package_id: props.package_id
         });
         hideLoader();
         swalNotification('success', response.data.message)
@@ -75,9 +86,14 @@ function checkTransactionStatus() {
             if (response.data.voucher) {
                 clearInterval(interval);
                 voucher.value = response.data.voucher;
-                swalNotification('success', 'Voucher is ready!');
-                checkingStatus.value = false;
-                processingPayment.value = false;
+                swalNotification('success', 'Voucher is ready!')
+                    .then(() => {
+                        checkingStatus.value = false;
+                        processingPayment.value = false;
+                        // submit the voucher code to the router login form
+                        document.getElementById('routerLoginForm').submit();
+                    });
+
             }
             // if transaction.status is 'failed', clear interval and show error
             if (response.data.transaction?.status === 'failed') {
@@ -103,7 +119,6 @@ const copyVoucherCode = () => {
     }
 };
 onMounted(() => {
-    fetchPackages();
     // transactionId.value = 64661480;
     // checkTransactionStatus();
 });
@@ -152,6 +167,11 @@ onMounted(() => {
                     <button class="btn btn-sm btn-outline-light" @click="copyVoucherCode">Copy</button>
                 </div>
                 <p class="mb-0 mt-2 small">Expires at: {{ new Date(voucher.expires_at).toLocaleString() }}</p>
+                <!-- hidden form for logging into the router after voucher purchase -->
+                <form method="POST" action="/hotspot-login" id="routerLoginForm">
+                    <input hidden name="_token" :value="props.csrfToken">
+                    <input type="hidden" name="voucher_code" :value="voucher.code">
+                </form>
             </div>
         </div>
 

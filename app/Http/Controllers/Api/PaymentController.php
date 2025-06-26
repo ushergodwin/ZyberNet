@@ -44,7 +44,6 @@ class PaymentController extends Controller
             }
 
             $paymentData = $response->json();
-
             // Store transaction
             Transaction::create([
                 'phone_number'  => $paymentData['contact']['phone_number'],
@@ -65,7 +64,7 @@ class PaymentController extends Controller
             //throw $th;
             Log::error('Payment error: ' . $th->getMessage(), [
                 'request' => $request->all(),
-                'error'   => $th->getMessage(),
+                'trace'   => $th->getTrace(),
             ]);
 
             return response()->json([
@@ -98,7 +97,11 @@ class PaymentController extends Controller
 
             $voucher = null;
             if ($transaction->status === 'successful' && !$transaction->voucher) {
-                $expiresAt = now()->addMinutes($transaction->package->duration_minutes);
+                $session_timeout = substr($transaction->package->session_timeout, 0, -1); // Remove the last character (h or d)
+                $session_timeout_unit = substr($transaction->package->session_timeout, -1); // Get the last character (h or d)
+                // Calculate expiration date based on session timeout
+                $expiresAt = now()->add($session_timeout_unit === 'd' ? $session_timeout . ' days' : $session_timeout . ' hours');
+
                 $code = strtoupper(Str::random(8));
                 $voucher = Voucher::create([
                     'code'           => $code,

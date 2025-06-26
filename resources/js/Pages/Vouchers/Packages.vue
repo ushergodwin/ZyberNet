@@ -11,14 +11,18 @@ const state = reactive({
     showModal: false,
     isEdit: false,
     form: {
+        price: 100,
         name: "",
-        price: 0,
-        duration_minutes: 0,
-        speed_limit: 0,
+        profile_name: "",
+        rate_limit: 0,
+        session_timeout: 1,
+        limit_bytes_total: 0,
+        shared_users: 1,
+        description: "",
+        rate_limit_unit: 'Mbps',
+        limit_bytes_unit: 'MB', // Default unit
         id: 0,
-        duration_hours: 0,
-        is_active: true,
-        profile: ""
+        session_timeout_unit: 'hours', // Default unit for session timeout
     }
 });
 onMounted(() => {
@@ -34,8 +38,8 @@ const submitForm = () => {
     showLoader();
     const url = state.isEdit ? `/api/configuration/vouchers/packages/${state.form.id}` : '/api/configuration/vouchers/packages';
     const method = state.isEdit ? 'put' : 'post';
-    // Ensure duration_minutes is calculated correctly
-    state.form.duration_minutes = state.form.duration_hours * 60;
+    // format session_timeout based on unit
+
     axios[method](url, state.form)
         .then((res) => {
             hideLoader();
@@ -64,14 +68,18 @@ const openModal = (edit = false, voucherPackage = null) => {
         state.form = { ...voucherPackage };
     } else {
         state.form = {
+            price: 1000,
             name: "",
-            price: 0,
-            duration_minutes: 0,
-            speed_limit: 0,
-            id: 0,
-            duration_hours: 0,
-            is_active: true,
-            profile: ""
+            profile_name: "",
+            rate_limit: 0,
+            session_timeout: 1,
+            limit_bytes_total: 0,
+            shared_users: 1,
+            description: "",
+            rate_limit_unit: 'Mbps',
+            limit_bytes_unit: 'MB', // Default unit
+            id: 0, // Reset ID for new package
+            session_timeout_unit: 'hours', // Default unit for session timeout
         };
     }
 };
@@ -155,11 +163,11 @@ const activateOrDeactivatePackage = (event, packageId) => {
 <template>
     <section class="container-fluid">
 
-        <Head title="Voucher Packages" />
+        <Head title="Data Plans" />
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="h3">Voucher Packages</h4>
+            <h4 class="h3">Data Plans</h4>
             <button class="btn btn-primary btn-sm" @click="openModal(false)">
-                <i class="fas fa-plus"></i> Create Voucher Package
+                <i class="fas fa-plus"></i> Create a Data Plan
             </button>
         </div>
 
@@ -175,9 +183,9 @@ const activateOrDeactivatePackage = (event, packageId) => {
                     <tr>
                         <th>Name</th>
                         <th>Price</th>
-                        <th>Duration</th>
-                        <th>Speed Limit (Mbps)</th>
-                        <th>Profile</th>
+                        <th>Rate Limit (Mbps)</th>
+                        <th>Session Timeout</th>
+                        <th>Data Limit</th>
                         <th style="width: 120px">Actions</th>
                     </tr>
                 </thead>
@@ -185,11 +193,9 @@ const activateOrDeactivatePackage = (event, packageId) => {
                     <tr v-for="pkg in state.vouchersPackages" :key="pkg.id">
                         <td>{{ pkg.name }}</td>
                         <td>{{ pkg.formatted_price }}</td>
-                        <td>{{ pkg.duration_hours }} {{ pkg.duration_hours > 1 ? `hrs` : `hr` }}</td>
-                        <td>{{ pkg.speed_limit || 'Unlimited' }}</td>
-                        <td>
-                            <span class="badge bg-secondary">{{ pkg.profile || 'default' }}</span>
-                        </td>
+                        <td>{{ pkg.rate_limit || 'Unlimited' }}</td>
+                        <td>{{ pkg.session_timeout || 'Unlimited' }}</td>
+                        <td>{{ pkg.limit_bytes_total ? pkg.formatted_limit_bytes_total : 'Unlimited' }}</td>
                         <td>
                             <div class="d-flex gap-3">
                                 <a href="#" class="text-primary" @click="openModal(true, pkg)">
@@ -214,46 +220,90 @@ const activateOrDeactivatePackage = (event, packageId) => {
                 </tbody>
             </table>
             <div v-else class="text-center py-5">
-                <p>No voucher packages available.</p>
+                <p>No Data Plans available.</p>
             </div>
         </div>
         <!-- Add/Edit Modal -->
         <div v-if="state.showModal" class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.3)">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">{{ state.isEdit ? "Edit Voucher Package" : "Add Voucher Package" }}</h5>
+                        <h5 class="modal-title">{{ state.isEdit ? "Edit Data Plan" : "Add Data Plan" }}</h5>
                         <button type="button" class="btn-close" @click="state.showModal = false"></button>
                     </div>
                     <form @submit.prevent="submitForm">
                         <div class="modal-body">
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Name</label>
-                                <input type="text" id="name" v-model="state.form.name" class="form-control"
-                                    autocomplete="off" required>
+                            <div class="row">
+                                <div class="col-md-5 mb-3">
+                                    <label for="name" class="form-label">Plan Name</label>
+                                    <input type="text" id="name" v-model="state.form.name" class="form-control"
+                                        autocomplete="off" placeholder="e.g. 6 Hours" required>
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label for="profile" class="form-label">Profile</label>
+                                    <input type="text" id="profile" v-model="state.form.profile_name"
+                                        class="form-control" autocomplete="off" placeholder="e.g. 1hr">
+                                </div>
+                                <div class="col-md-2 mb-3">
+                                    <label for="shared_users" class="form-label">Shared Users</label>
+                                    <input type="number" id="shared_users" v-model.number="state.form.shared_users"
+                                        class="form-control" autocomplete="off" readonly>
+                                </div>
                             </div>
-                            <div class="mb-3">
+                            <div class="mb-3 w-50">
                                 <label for="price" class="form-label">Price</label>
                                 <input type="number" id="price" v-model.number="state.form.price" autocomplete="off"
                                     class="form-control" required>
                             </div>
+
                             <div class="mb-3">
-                                <label for="duration_hours" class="form-label">Duration (hours)</label>
-                                <input type="number" id="duration_hours" v-model.number="state.form.duration_hours"
-                                    class="form-control" autocomplete="off" required>
+                                <label for="speed_limit" class="form-label">Rate Limit (Mbps)</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="number" id="speed_limit" v-model.number="state.form.rate_limit"
+                                            class="form-control" autocomplete="off">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <select class="form-select" v-model="state.form.rate_limit_unit">
+                                            <option value="Mbps">Mbps</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="session_timeout" class="form-label">Session Timeout</label>
+                                    <input type="number" id="session_timeout"
+                                        v-model.number="state.form.session_timeout" class="form-control"
+                                        autocomplete="off">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="session_timeout_unit" class="form-label">Unit</label>
+                                    <select class="form-select" v-model="state.form.session_timeout_unit">
+                                        <option value="hours">Hours</option>
+                                        <option value="days">Days</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- limit_bytes_total -->
                             <div class="mb-3">
-                                <label for="profile" class="form-label">Profile</label>
-                                <input type="text" id="profile" v-model="state.form.profile" class="form-control"
-                                    autocomplete="off">
+                                <label for="data_limit" class="form-label">Data Limit</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="number" id="data_limit"
+                                            v-model.number="state.form.limit_bytes_total" class="form-control"
+                                            autocomplete="off">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <select class="form-select" v-model="state.form.limit_bytes_unit">
+                                            <option value="MB">MB</option>
+                                            <option value="GB">GB</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <span class="form-text">
-                                    The entered profile must match a profile configured in the Mikrotik router.
+                                    Set to 0 for unlimited data.
                                 </span>
-                            </div>
-                            <div class="mb-3">
-                                <label for="speed_limit" class="form-label">Speed Limit (Mbps)</label>
-                                <input type="number" id="speed_limit" v-model.number="state.form.speed_limit"
-                                    class="form-control" autocomplete="off">
                             </div>
                         </div>
                         <div class="modal-footer">

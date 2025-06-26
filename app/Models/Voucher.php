@@ -41,23 +41,28 @@ class Voucher extends Model
     }
     public function getIsActiveAttribute()
     {
-        return !$this->is_used && $this->expires_at > now();
+        // return true if the voucher expiry date is in the future
+        return Carbon::now()->lessThanOrEqualTo($this->expires_at);
     }
 
     protected static function booted()
     {
         static::created(function ($voucher) {
             try {
-                $router = \App\Models\RouterConfiguration::first(); // You can adjust logic later
+                $router = \App\Models\RouterConfiguration::first();
+                if (config('app.env') != 'local') {
+                    $mikrotik = new \App\Services\MikroTikService($router);
 
-                // $mikrotik = new \App\Services\MikroTikService($router);
+                    $mikrotik->createHotspotUser(
+                        $voucher->code,
+                        $voucher->code,
+                        $voucher->package->profile_name,
+                    );
 
-                // $mikrotik->createHotspotUser(
-                //     $voucher->code,
-                //     $voucher->code,
-                //     $voucher->package->profile
-                // );
-                Log::info('Voucher created: ' . $voucher->code);
+                    Log::info('Voucher created: ' . $voucher->code, [
+                        'voucher' => $voucher,
+                    ]);
+                }
             } catch (\Throwable $th) {
                 Log::error('Failed to create MikroTik user: ' . $th->getMessage());
             }

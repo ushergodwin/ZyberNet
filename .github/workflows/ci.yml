@@ -1,4 +1,4 @@
-name: ZyberNet CI
+name: SuperSpot Wifi  CI
 
 on:
   push:

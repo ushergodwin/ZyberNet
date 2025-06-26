@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\RouterConfiguration;
 use App\Models\User;
 use App\Models\VoucherPackage;
+use App\Services\MikroTikService;
 use App\Traits\RouterTrait;
 use Illuminate\Support\Facades\Log;
 
@@ -88,7 +89,7 @@ class ConfigurationController extends Controller
         $packages = VoucherPackage::when($request->has('search'), function ($query) use ($request) {
             $query->where('name', 'like', '%' . $request->search . '%');
         })
-            ->where('is_active', true) // Only active packages
+            // ->where('is_active', true) // Only active packages
             ->orderBy('created_at', 'desc')
             ->get();
         return response()->json([
@@ -99,16 +100,43 @@ class ConfigurationController extends Controller
     // save Voucher Package
     public function createVoucherPackage(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:100',
-            'duration_minutes' => 'required|integer',
+        $validated = $request->validate([
+            'name'  => 'required|string|max:100',
             'price' => 'required|numeric',
-            'speed_limit' => 'nullable|integer',
-            'is_active' => 'boolean',
-            'profile' => 'required|string|max:100', // Ensure profile is a string and optional
+            'profile_name' => 'required|string|max:100',
+            'rate_limit' => 'integer|max:100',
+            'session_timeout' => 'integer|max:100',
+            'limit_bytes_total' => 'integer',
+            'shared_users' => 'required|integer|min:1',
+            'description' => 'nullable|string|max:255',
         ]);
 
-        $package = VoucherPackage::create($request->all());
+        $limit_bytes_total_unit = $request->input('limit_bytes_total_unit', 'MB');
+        $limit_bytes_total = $request->input('limit_bytes_total', 0);
+
+        if ($limit_bytes_total !== 0 && $limit_bytes_total !== null) {
+            $validated['limit_bytes_total'] = MikroTikService::convertToBytes($limit_bytes_total, $limit_bytes_total_unit);
+        } else {
+            $validated['limit_bytes_total'] = null; // Ensure it's set to null if not provided
+        }
+
+        // format session_timeout using session_timeout_unit
+        $session_timeout_unit = $request->input('session_timeout_unit', 'hours');
+        $session_timeout = $session_timeout_unit === 'days' ? $validated['session_timeout'] . 'd' : $validated['session_timeout'] . 'h';
+        $validated['session_timeout'] = $session_timeout;
+
+        // format rate_limit
+        $validated['rate_limit'] = "{$validated['rate_limit']}M/{$validated['rate_limit']}M"; // rate_limit is in Mbps
+
+        $validated['description'] = "{$validated['name']} - {$validated['price']} UGX";
+        $package = VoucherPackage::create($validated);
+
+        // create router profile if it doesn't exist
+        if (config('app.env') != 'local') {
+            $router = RouterConfiguration::first();
+            $routerService = new MikroTikService($router);
+            $routerService->pushProfileToRouter($package);
+        }
         return response()->json([
             'message' => 'Voucher Package saved successfully',
             'package' => $package,

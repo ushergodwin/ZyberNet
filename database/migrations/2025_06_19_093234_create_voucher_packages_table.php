@@ -13,13 +13,23 @@ return new class extends Migration
     {
         Schema::create('voucher_packages', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 20)->index(); // Name of the voucher package
-            $table->integer('duration_minutes'); // How long the voucher lasts
-            $table->decimal('price', 10, 2);     // Price in UGX
-            $table->integer('speed_limit')->nullable(); // Optional KBps
+
+            // Basic details
+            $table->string('name', 50)->index();            // e.g. 'Gold', '300MB 2Mbps'
+            $table->decimal('price', 10, 2);                // e.g. 1000.00 UGX
+
+            // Router profile mapping
+            $table->string('profile_name')->unique();       // Must match router profile
+            $table->string('rate_limit')->nullable();       // e.g. '2M/2M'
+            $table->string('session_timeout')->nullable();  // e.g. '1h', enforced by router
+            $table->bigInteger('limit_bytes_total')->nullable(); // e.g. 300MB
+            $table->unsignedTinyInteger('shared_users')->default(1); // How many devices
+
+            // Meta
             $table->boolean('is_active')->default(true)->index();
+            $table->text('description')->nullable();        // Optional admin reference
             $table->timestamps();
-            $table->softDeletes();
+            $table->softDeletes();                          // For safe deletion
         });
     }
 

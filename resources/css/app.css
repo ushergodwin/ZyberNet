@@ -2,6 +2,10 @@
     --bs-primary: #ff6f00;
     --bs-primary-rgb: 255, 111, 0;
 }
+body {
+    font-family: "Inter", sans-serif;
+}
+
 ul.nav-tabs > li.nav-item > .nav-link {
     border: none;
     border-bottom: 2px solid transparent;

@@ -37,7 +37,7 @@ return [
     'egosms' => [
         'username' => env('EGOSMS_USERNAME'),
         'password' => env('EGOSMS_PASSWORD'),
-        'sender' => env('EGOSMS_SENDER', 'ZyberNet Tech'),
+        'sender' => env('EGOSMS_SENDER', 'SuperSpot Wifi'),
         'api_url' => env('EGOSMS_API_URL', 'https://www.egosms.co/api/v1/plain/'),
     ],
 ];

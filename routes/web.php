@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HotspotController;
 use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\UserController;
@@ -9,15 +10,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
-
+Route::get('/', [HotspotController::class, 'showLogin']);
+Route::post('/hotspot-login', [HotspotController::class, 'authenticate']);
+Route::post('/hotspot-link-login', [HotspotController::class, 'login'])->name('hotspot.authenticate');
+Route::get('/hotspot-login-successful', [HotspotController::class, 'success'])->name('hotspot.success');
+Route::get('/buy-voucher/{id}', [HotspotController::class, 'buyVoucher'])->name('hotspot.buyVoucher');
+// authenticated routes
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),
