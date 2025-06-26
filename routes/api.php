@@ -37,7 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/packages/{id}/toggle', [ConfigurationController::class, 'toggleVoucherPackage'])->name('configuration.toggleVoucherPackage');
 
             // vouchers
-            Route::get('/', [VoucherController::class, 'getVouchers'])->name('configuration.vouchers');
+            Route::get('/', [VoucherController::class, 'getVouchers']);
         });
 
         // users 
@@ -54,9 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('/vouchers')->group(function () {
         // vouchers
-        Route::get('/', [VoucherController::class, 'getVouchers'])->name('configuration.vouchers');
+        Route::get('/', [VoucherController::class, 'getVouchers']);
         //getVoucher
-        Route::get('/{id}', [VoucherController::class, 'getVoucher'])->name('configuration.voucher');
+        Route::get('/{id}', [VoucherController::class, 'getVoucher']);
         //get voucher transaction details
         Route::get('/{id}/transaction', [VoucherController::class, 'getVoucherTransaction'])->name('configuration.voucherTransaction');
         // save transaction
