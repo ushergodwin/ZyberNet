@@ -1,4 +1,4 @@
-name: SuperSpot Wifi  CI
+name: SuperSpot Wifi CI
 
 on:
   push:
