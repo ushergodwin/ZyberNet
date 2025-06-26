@@ -23,3 +23,5 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+/id_rsa_superspot
+/id_rsa_superspot.pub
