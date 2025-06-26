@@ -27,7 +27,7 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
-
+    'deploy_key' => env('APP_DEPLOY_KEY'),
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode

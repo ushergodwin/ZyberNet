@@ -48,7 +48,7 @@ jobs:
 
       - name: 📤 Deploy Laravel App (excluding build tools)
         run: |
-          rsync -avz \
+          rsync -avz -e "ssh -p 2683" \
             --exclude="node_modules" \
             --exclude="tests" \
             --exclude=".git" \
@@ -62,11 +62,11 @@ jobs:
 
       - name: 📤 Deploy Built Assets (Vue)
         run: |
-          rsync -avz public/build/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/public/build/
+          rsync -avz -e "ssh -p 2683" public/build/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/public/build/
 
       - name: ✅ Final Touch (e.g., migrate)
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -p 2683 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH }}
             php artisan migrate --force --seed
           EOF
