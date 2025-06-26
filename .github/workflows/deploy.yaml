@@ -35,11 +35,16 @@ jobs:
           npm ci
           npm run build
 
-      - name: 🧹 Laravel Optimizations
+      - name: 🧹 Optimize
         run: |
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
+
+      - name: ✅ Add Host to Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p 2683 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: 🔐 Add SSH Key
         uses: webfactory/ssh-agent@v0.9.0
