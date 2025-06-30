@@ -3,8 +3,8 @@ name: 🚀 SuperSpot Wifi Release
 on:
   push:
     branches:
-      - main # Run on every push to main branch
-  workflow_dispatch: # Allow manual trigger from UI
+      - main # Automatically trigger on push to main
+  workflow_dispatch: # Allow manual trigger from GitHub UI
 
 jobs:
   release:
@@ -21,7 +21,7 @@ jobs:
       - name: ⚙️ Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.3
+          php-version: 8.2
           extensions: mbstring, xml, ctype, json, bcmath, fileinfo
           coverage: none
 
@@ -42,12 +42,15 @@ jobs:
 
       - name: 📦 Prepare release directory
         run: |
-          mkdir release
-          cp -r app bootstrap config database lang public resources routes storage artisan server.php .env.example release/
-          cp -r public/build release/public/build
-          cp -r public/mix-manifest.json release/public/
+          mkdir -p release/public/build
+          mkdir -p release/storage
+
+          cp -r app bootstrap config database public resources routes storage artisan release/
+          cp -r public/build release/public/build || true
+          cp public/mix-manifest.json release/public/ || true
           cp -r vendor release/vendor
-          cp composer.* phpunit.xml README.md release/ || true
+          cp composer.* phpunit.xml README.md .env.example release/ || true
+
           chmod -R 755 release
 
       - name: 🗜️ Archive release
