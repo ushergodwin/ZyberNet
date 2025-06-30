@@ -2,8 +2,9 @@ name: 🚀 SuperSpot Wifi Release
 
 on:
   push:
-    tags:
-      - "v*" # e.g., v1.0.0
+    branches:
+      - main # Run on every push to main branch
+  workflow_dispatch: # Allow manual trigger from UI
 
 jobs:
   release:
@@ -46,11 +47,7 @@ jobs:
           cp -r public/build release/public/build
           cp -r public/mix-manifest.json release/public/
           cp -r vendor release/vendor
-          cp -r composer.* release/
-          cp -r artisan release/
-          cp -r phpunit.xml release/
-          cp -r README.md release/ || true
-          cp -r storage release/storage
+          cp composer.* phpunit.xml README.md release/ || true
           chmod -R 755 release
 
       - name: 🗜️ Archive release
@@ -61,8 +58,8 @@ jobs:
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
+          name: Release from main - ${{ github.run_number }}
+          tag_name: main-${{ github.run_number }}
           files: super-spot-release.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
