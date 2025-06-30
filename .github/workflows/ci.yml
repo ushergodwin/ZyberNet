@@ -1,8 +1,8 @@
 name: SuperSpot Wifi CI
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   pull_request:
     branches: [main]
 
