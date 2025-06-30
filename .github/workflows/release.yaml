@@ -1,68 +1,116 @@
-name: 🚀 SuperSpot Wifi Release
+name: 🚀 SuperSpot Wifi Release Pipeline
 
 on:
   push:
-    branches:
-      - main # Automatically trigger on push to main
-  workflow_dispatch: # Allow manual trigger from GitHub UI
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  COMPOSER_NO_INTERACTION: 1
+  COMPOSER_NO_AUDIT: 1
+  NODE_ENV: production
 
 jobs:
-  release:
+  build-and-release:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20.x]
+    permissions:
+      contents: write
+      packages: read
+      actions: read
 
     steps:
-      - name: 📥 Checkout code
+      # ----------------------------------
+      # 1. SETUP ENVIRONMENT
+      # ----------------------------------
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for proper tagging
 
+      # ----------------------------------
+      # 2. PHP SETUP
+      # ----------------------------------
       - name: ⚙️ Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.2
+          php-version: "8.2"
           extensions: mbstring, xml, ctype, json, bcmath, fileinfo
           coverage: none
+          tools: composer:v2
 
-      - name: 📦 Install Composer dependencies
+      - name: 🗄️ Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('composer.lock') }}
+
+      - name: 📦 Install PHP dependencies
         run: composer install --no-dev --prefer-dist --optimize-autoloader
 
-      - name: ⚙️ Setup Node.js ${{ matrix.node-version }}
+      # ----------------------------------
+      # 3. NODE SETUP
+      # ----------------------------------
+      - name: ⎔ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: 🗄️ Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            public/build
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
 
       - name: 📦 Install Node dependencies
-        run: npm ci
+        run: npm ci --prefer-offline
 
       - name: 🛠️ Build frontend assets
-        run: npm run build
+        run: npm run build --if-present
 
-      - name: 📦 Prepare release directory
+      # ----------------------------------
+      # 4. PREPARE RELEASE ARTIFACT
+      # ----------------------------------
+      - name: 📁 Create release structure
         run: |
-          mkdir -p release/public/build
-          mkdir -p release/storage
-
+          mkdir -p release/{app,bootstrap,config,database,public,resources,routes,storage,vendor}
           cp -r app bootstrap config database public resources routes storage artisan release/
-          cp -r public/build release/public/build || true
+          cp -r public/build release/public/ || true
           cp public/mix-manifest.json release/public/ || true
-          cp -r vendor release/vendor
-          cp composer.* phpunit.xml README.md .env.example release/ || true
+          cp -r vendor release/
+          cp composer.* .env.example release/
 
-          chmod -R 755 release
-
-      - name: 🗜️ Archive release
+      - name: 🗜️ Compress release package
         run: |
           cd release
-          zip -r ../super-spot-release.zip .
+          zip -r ../super-spot-release.zip ./*
+          cd ..
+          sha256sum super-spot-release.zip > super-spot-release.zip.sha256
 
-      - name: 🚀 Create GitHub Release
+      # ----------------------------------
+      # 5. CREATE RELEASE
+      # ----------------------------------
+      - name: 🏷️ Create version tag
+        id: tag-version
+        run: |
+          VERSION="main-${{ github.run_number }}"
+          echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+      - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release from main - ${{ github.run_number }}
-          tag_name: main-${{ github.run_number }}
-          files: super-spot-release.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ env.RELEASE_VERSION }}
+          name: "Release ${{ env.RELEASE_VERSION }}"
+          body: "Automated release from main branch"
+          files: |
+            super-spot-release.zip
+            super-spot-release.zip.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true
