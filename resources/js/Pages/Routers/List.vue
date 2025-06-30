@@ -264,7 +264,7 @@ onMounted(() => {
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Password</label>
-                                <input v-model="form.password" type="password" class="form-control" :required="!isEdit"
+                                <input v-model="form.password" type="password" class="form-control"
                                     autocomplete="off" />
                             </div>
                         </div>

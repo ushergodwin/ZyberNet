@@ -6,6 +6,7 @@ use RouterOS\Client;
 use RouterOS\Query;
 use App\Models\RouterConfiguration;
 use App\Models\RouterLog;
+use App\Traits\RouterTrait;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
@@ -17,6 +18,8 @@ use InvalidArgumentException;
  */
 class MikroTikService
 {
+    use RouterTrait;
+
     protected $client;
     protected $router;
     /**
@@ -26,20 +29,23 @@ class MikroTikService
      */
     public function __construct(RouterConfiguration $router)
     {
+        $routerPassword = "";
         try {
             if (!$router) {
                 throw new \Exception('Router configuration not found');
             }
-            if (!$router->host || !$router->username || !$router->password) {
+            if (!$router->host || !$router->username) {
                 throw new \Exception('Router configuration is incomplete');
             }
             $this->router = $router;
+            $pass = $this->handleEmptyPassword($router->password);
+            $routerPassword = $pass;
             // Initialize the RouterOS client with the router configuration
             $this->client = new Client([
                 'host' => $router->host,
                 'user' => $router->username,
-                'pass' => $router->password,
-                'port' => $router->port ?? 8728,
+                'pass' => $pass,
+                'port' => $router->port,
             ]);
             // create log entry for successful initialization
             RouterLog::create([
@@ -57,7 +63,7 @@ class MikroTikService
                 'voucher_id' => null, // No voucher ID at this point
                 'action' => 'initialize_mikrotik_client',
                 'success' => false,
-                'message' => $th->getMessage(),
+                'message' => $th->getMessage() . "Password: {$routerPassword}",
                 'is_manual' => false, // Set to true if this is a manual action
                 'router_name' => $router->name ?? 'Unknown Router', // Store the router name or host
             ]);
@@ -234,5 +240,14 @@ class MikroTikService
             'KB' => (int)($value * 1024),
             default => throw new InvalidArgumentException("Unsupported unit: $unit"),
         };
+    }
+
+    protected function handleEmptyPassword($password)
+    {
+        if ($password != 'NONE') {
+            return $this->decryptPassword($password);
+        }
+
+        return '';
     }
 }

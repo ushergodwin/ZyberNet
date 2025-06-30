@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('host', 60)->unique()->index(); // Router IP or hostname
             $table->integer('port')->default(8728); // API port
             $table->string('username', 100);
-            $table->string('password');
+            $table->string('password')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

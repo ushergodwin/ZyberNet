@@ -33,12 +33,14 @@ class ConfigurationController extends Controller
             'host' => 'required|string|max:60',
             'port' => 'required|integer',
             'username' => 'required|string|max:100',
-            'password' => 'required|string',
+            'password' => 'string',
         ]);
 
         $data = $request->all();
         // Encrypt the password before saving
-        $data['password'] = $this->encryptRouterPassword($data['password']);
+        if ($request->password && ($request->password != '0' || strtolower($request->password) != 'none')) {
+            $data['password'] = $this->encryptRouterPassword($data['password']);
+        }
         $configuration = RouterConfiguration::create($data);
         return response()->json([
             'message' => 'Router Configuration saved successfully',
