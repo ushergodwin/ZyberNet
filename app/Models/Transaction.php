@@ -22,6 +22,7 @@ class Transaction extends Model
         'mfscode',
         'package_id',
         'response_json',
+        'channel'
     ];
 
     protected $appends = [

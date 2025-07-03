@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, nextTick } from "vue";
-import { Head, usePage } from "@inertiajs/vue3";
+import { Head, router, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { showLoader, hideLoader, swalNotification, swalConfirm } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
@@ -60,7 +60,7 @@ const loadVouchers = (page) => {
             from: data.from,
             to: data.to
         };
-        state.error = data.data.length === 0 ? "No more vouchers available." : null;
+        state.error = data.data.length === 0 ? "No vouchers found at the moment!." : null;
         state.loading = false;
     }).catch(error => {
         state.error = "Failed to load vouchers.";
@@ -95,12 +95,12 @@ const generateVouchers = () => {
                 quantity: state.form.quantity
             }).then(response => {
                 hideLoader();
-                state.generatedVouchers = response.data;
+                state.generatedVouchers = response.data.vouchers;
                 localStorage.setItem("recentlyGeneratedVouchers", JSON.stringify(state.generatedVouchers));
                 state.showCreateModal = false;
                 state.form.package_id = null;
                 state.form.quantity = 1;
-                swalNotification("success", `${response.data.length} vouchers generated.`).then(() => {
+                swalNotification("success", `${state.generatedVouchers.length} vouchers generated.`).then(() => {
                     state.showPrintModal = true;
                     nextTick(() => printVouchers(state.generatedVouchers));
                     loadVouchers(1);
@@ -197,11 +197,11 @@ const saveTransaction = () => {
             showLoader('Saving transaction...');
             axios.post(`/api/vouchers/${state.selectedVoucher.id}/transaction`, state.transactionForm)
                 .then(response => {
-                    if(response.status === 200) {
+                    if (response.status === 200) {
                         hideLoader();
-                    swalNotification("success", "Transaction saved successfully.");
-                    state.showTransactionModal = false;
-                    loadVouchers(state.pagination.current_page);
+                        swalNotification("success", "Transaction saved successfully.");
+                        state.showTransactionModal = false;
+                        loadVouchers(state.pagination.current_page);
                     } else {
                         hideLoader();
                         swalNotification("error", "Failed to save transaction.");
@@ -215,6 +215,10 @@ const saveTransaction = () => {
         }
     });
 }
+
+const goToPurchase = () => {
+    router.visit('/vouchers/purchase');
+};
 </script>
 
 
@@ -225,6 +229,9 @@ const saveTransaction = () => {
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h3">Vouchers</h4>
             <div class="d-flex gap-2">
+                <button class="btn btn-success" @click="goToPurchase">
+                    <i class="fas fa-dollar"></i> Purchase
+                </button>
                 <button class="btn btn-primary" @click="state.showCreateModal = true">
                     <i class="fas fa-plus"></i> Create Vouchers
                 </button>
@@ -243,7 +250,6 @@ const saveTransaction = () => {
                         <th>Package</th>
                         <th>Amount</th>
                         <th>Status</th>
-                        <th>Is Used</th>
                         <td>Expiry</td>
                         <th>Actions</th>
                     </tr>
@@ -254,7 +260,6 @@ const saveTransaction = () => {
                         <td>{{ voucher.package.name }}</td>
                         <td>{{ voucher.package.formatted_price }}</td>
                         <td>{{ voucher.is_active ? `Active` : `Expired` }}</td>
-                        <td>{{ voucher.used_at ? `Yes` : `No` }}</td>
                         <td>{{ voucher.expires_at ? voucher.formatted_expiry_date : `N/A` }}</td>
                         <td>
                             <div class="d-flex gap-3">
@@ -338,19 +343,21 @@ const saveTransaction = () => {
                                                 <input type="text" v-model="state.transactionForm.phone_number"
                                                     class="form-control input-rounded" placeholder="+2567XXXXXXXX" />
                                             </td>
-                                            <td> 
+                                            <td>
                                                 <input type="number" v-model="state.transactionForm.amount"
                                                     class="form-control input-rounded" placeholder="Amount in UGX" />
                                             </td>
                                             <td>
-                                                <select v-model="state.transactionForm.currency" class="form-select input-rounded">
+                                                <select v-model="state.transactionForm.currency"
+                                                    class="form-select input-rounded">
                                                     <option value="UGX">UGX</option>
                                                     <option value="USD">USD</option>
                                                     <option value="EUR">EUR</option>
                                                 </select>
                                             </td>
                                             <td>
-                                                <select v-model="state.transactionForm.status" class="form-select input-rounded">
+                                                <select v-model="state.transactionForm.status"
+                                                    class="form-select input-rounded">
                                                     <option value="successful">Successful</option>
                                                     <option value="failed">Failed</option>
                                                     <option value="pending">Pending</option>
@@ -360,8 +367,7 @@ const saveTransaction = () => {
                                     </tbody>
                                 </table>
                                 <div class="d-flex justify-content-end">
-                                    <button class="btn btn-primary" @click="saveTransaction"
-                                        :disabled="state.loading">
+                                    <button class="btn btn-primary" @click="saveTransaction" :disabled="state.loading">
                                         <i class="fas fa-save"></i> Save Transaction
                                     </button>
                                 </div>
@@ -396,24 +402,23 @@ const saveTransaction = () => {
                 </div>
             </div>
 
-                  <!-- Create Voucher Modal -->
+            <!-- Create Voucher Modal -->
             <div v-if="state.showCreateModal" class="modal fade show d-block" tabindex="-1"
                 style="background:rgba(0,0,0,0.3)">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title">Create Vouchers</h5>
-                            <button type="button" class="btn-close"
-                                @click="state.showCreateModal = false"></button>
+                            <button type="button" class="btn-close" @click="state.showCreateModal = false"></button>
                         </div>
-                       <div class="modal-body">
+                        <div class="modal-body">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="package_id" class="form-label">Select Data Plan</label>
                                     <select v-model="state.form.package_id" class="form-select input-rounded">
                                         <option value="" disabled> -- select a plan --</option>
-                                        <option v-for="pkg in state.packages" :key="pkg.id"
-                                            :value="pkg.id">{{ pkg.name }} - {{ pkg.formatted_price }}</option>
+                                        <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">{{ pkg.name
+                                        }} - {{ pkg.formatted_price }}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
@@ -424,8 +429,7 @@ const saveTransaction = () => {
                             </div>
 
                             <div class="d-flex justify-content-end">
-                                <button class="btn btn-primary" @click="generateVouchers"
-                                    :disabled="state.loading">
+                                <button class="btn btn-primary" @click="generateVouchers" :disabled="state.loading">
                                     <i class="fas fa-plus"></i> Generate Vouchers
                                 </button>
                             </div>

@@ -15,7 +15,7 @@ class AdminSeeder extends Seeder
     {
         // seed the default admin user
         User::updateOrCreate([
-            'email' => 'admin@superspotwifi.com',
+            'email' => 'admin@superspotwifi.net',
         ], [
             'name' => 'Admin',
             'password' => bcrypt('.NeT#123@M'), // Use a secure password,

@@ -28,6 +28,9 @@ return [
 
     'env' => env('APP_ENV', 'production'),
     'deploy_key' => env('APP_DEPLOY_KEY'),
+    'local_domain' => env('APP_LOCAL_DOMAIN'),
+    'remote_domain' => env('APP_REMOTE_DOMAIN'),
+    'sync_vouchers_from_local' => env('APP_SYNC_VOUCHERS_FROM_LOCAL', false),
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode

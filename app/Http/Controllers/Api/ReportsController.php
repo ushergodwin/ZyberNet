@@ -19,6 +19,8 @@ class ReportsController extends Controller
     {
 
         $totalRevenue = Transaction::where('status', 'successful')->sum('amount');
+        $cashRevenue = Transaction::where('status', 'successful')->where('channel', 'cash')->sum('amount');
+        $mobileMoneyRevenue = Transaction::where('status', 'successful')->where('channel', 'mobile_money')->sum('amount');
         // Ensure that the total revenue is formatted correctly
         $totalRevenue = number_format(intval($totalRevenue), 2);
         $statistics = [
@@ -34,6 +36,8 @@ class ReportsController extends Controller
             'transactions' => Transaction::count(),
             'successful_transactions' => Transaction::where('status', 'successful')->count(),
             'failed_transactions' => Transaction::where('status', 'failed')->count(),
+            'cash_revenue' => number_format(intval($cashRevenue), 2) . ' UGX',
+            'mobile_money_revenue' => number_format(intval($mobileMoneyRevenue), 2) . ' UGX',
             'total_revenue' => $totalRevenue . ' UGX',
         ];
 

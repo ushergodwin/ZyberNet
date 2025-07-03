@@ -6,8 +6,6 @@ use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VoucherController;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -16,7 +14,7 @@ Route::get('/', [HotspotController::class, 'showLogin']);
 Route::post('/hotspot-login', [HotspotController::class, 'authenticate']);
 Route::post('/hotspot-link-login', [HotspotController::class, 'login'])->name('hotspot.authenticate');
 Route::get('/hotspot-login-successful', [HotspotController::class, 'success'])->name('hotspot.success');
-Route::get('/buy-voucher/{id}', [HotspotController::class, 'buyVoucher'])->name('hotspot.buyVoucher');
+// Route::get('/buy-voucher/{id}', [HotspotController::class, 'buyVoucher'])->name('hotspot.buyVoucher');
 // run migration 
 Route::get('/run-migrations', [DeployController::class, 'migrate']);
 
@@ -47,6 +45,8 @@ Route::middleware([
     Route::get('/routers/logs', [RouterController::class, 'logs'])->name('routers.logs');
     // vouchers
     Route::get('/vouchers', [VoucherController::class, 'vouchers'])->name('vouchers.list');
+    // purchase voucher
+    Route::get('/vouchers/purchase/{id?}', [VoucherController::class, 'purchase'])->name('vouchers.purchase');
     // payments
     Route::get('/payments', [PaymentsController::class, 'index'])->name('payments.index');
 });

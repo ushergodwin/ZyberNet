@@ -151,6 +151,18 @@
                 padding: 1.5rem;
             }
         }
+
+        a.phone {
+            color: #00f0ff;
+            text-decoration: none;
+        }
+        a.phone:hover {
+            text-decoration: underline;
+        }
+        a span {
+            cursor: pointer;
+            color: #00f0ff;
+        }
     </style>
 </head>
 <body>
@@ -186,10 +198,24 @@
 
         <hr>
         <div class="powered">
-            Get a Voucher at SHOP or select one of the plans above to Pay via Mobile Money
+            Get a Voucher at SHOP for either of the plans listed above and  Pay with Cash or Mobile Money. 
+            <br/><br/>Call <a href="tel:+256757058906" class="phone">+256 757 058906</a> for support
             <hr/>
-            Powered by <span>Eng. Godwin</span>
+            Powered by <a href="javascript:void(0)" class="phone" onclick="openWhatsAppLink()" > Eng. Godwin </a>
         </div>
     </div>
+    <script>
+        function openWhatsAppLink(){
+            const whatsappUrl = "https://wa.link/ogbnmg";
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/android/i.test(userAgent)) {
+                window.location.href = whatsappUrl;
+            } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                window.location.href = whatsappUrl;
+            } else {
+                window.open(whatsappUrl, '_blank');
+            }
+        }
+    </script>
 </body>
 </html>

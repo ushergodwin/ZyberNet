@@ -84,3 +84,5 @@ Route::prefix('payments')->group(function () {
     Route::get('/voucher/status/{id}', [PaymentController::class, 'checkTransactionStatus'])->name('payment.checkVoucherStatus');
 });
 Route::get('configuration/vouchers/packages', [ConfigurationController::class, 'getVoucherPackages'])->name('configuration.voucherPackages');
+// sync vouchers 
+Route::get('configuration/vouchers/sync', [VoucherController::class, 'syncVouchersFromLocalHost'])->name('configuration.syncVouchers');

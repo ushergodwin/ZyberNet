@@ -35,18 +35,18 @@ class HotspotController extends Controller
             'voucher_code' => 'required',
         ]);
         // check if the voucher code is valid
-        $voucher = Voucher::where('code', $request->voucher_code)->first();
-        $error = null;
-        if (!$voucher) {
-            $error = 'Invalid voucher code.';
-        } elseif ($voucher->is_expired) {
-            $error = 'This voucher has expired.';
-        }
+        // $voucher = Voucher::where('code', $request->voucher_code)->first();
+        // $error = null;
+        // if (!$voucher) {
+        //     $error = 'Invalid voucher code.';
+        // } elseif ($voucher->is_expired) {
+        //     $error = 'This voucher has expired.';
+        // }
 
-        if ($error) {
-            // If the voucher is invalid or expired, redirect back with an error message
-            return redirect()->back()->with('error', $error);
-        }
+        // if ($error) {
+        //     // If the voucher is invalid or expired, redirect back with an error message
+        //     return redirect()->back()->with('error', $error);
+        // }
 
         $link_login = session('link_login', $request->query('link-login'));
 
@@ -85,20 +85,17 @@ class HotspotController extends Controller
     }
 
     // buyVoucher
-    public function buyVoucher($id)
+    public function buyVoucher($id = null)
     {
-        $package = VoucherPackage::findOrFail($id);
-        // Check if the package is available
-        if (!$package) {
-            return redirect()->back()->with('error', 'This package is not available.');
-        }
+        $package = VoucherPackage::find($id);
         // Render the buy voucher page with the package details
 
         // get csrfToken
         $csrfToken = csrf_token();
         return Inertia::render('Vouchers/Buy', [
-            'package_id' => $package->id,
-            'csrfToken' => $csrfToken
+            'package_id' => $package ? $package->id : null,
+            'csrfToken' => $csrfToken,
+            'packages' => VoucherPackage::all(),
         ]);
     }
 }

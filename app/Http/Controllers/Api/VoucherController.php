@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Voucher;
 use App\Models\VoucherPackage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class VoucherController extends Controller
@@ -97,7 +99,11 @@ class VoucherController extends Controller
             ]);
         }
 
-        return response()->json($vouchers);
+        return response()->json([
+            'message' => 'Vouchers generated successfully',
+            'vouchers' => $vouchers,
+            'sync_vouchers' => config('app.sync_vouchers_from_local') ? true : false,
+        ]);
     }
 
     // saveVoucherTransaction
@@ -121,6 +127,7 @@ class VoucherController extends Controller
             'payment_id' => $paymentId,
             'mfscode' => uniqid('ME'),
             'package_id' => $voucher->package->id,
+            'channel' => 'cash',
         ];
 
         $transaction = $voucher->transaction()->create($transactionData);
@@ -131,5 +138,39 @@ class VoucherController extends Controller
             'message' => 'Voucher transaction saved successfully',
             'voucher' => $voucher,
         ]);
+    }
+
+    public function syncVouchersFromLocalHost(Request $request,)
+    {
+        try {
+            // if request origin is not == to config('app.local_domain'), return 403
+            if ($request->getHost() !== config('app.local_domain')) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $vouchers = $request->input('vouchers', []);
+            if (empty($vouchers)) {
+                return response()->json(['message' => 'No vouchers to sync'], 400);
+            }
+
+            foreach ($vouchers as $voucherData) {
+                DB::table('vouchers')->updateOrInsert(
+                    ['code' => $voucherData['code']],
+                    [
+                        'package_id' => $voucherData['package_id'],
+                        'expires_at' => $voucherData['expires_at'],
+                        'is_used' => $voucherData['is_used'] ?? 0,
+                        'transaction_id' => $voucherData['transaction_id'] ?? null,
+                    ]
+                );
+            }
+        } catch (\Throwable $th) {
+            //throw $th;
+            Log::error('Voucher sync error: ' . $th->getMessage(), [
+                'vouchers' => $vouchers,
+                'error' => $th->getMessage(),
+            ]);
+            return response()->json(['message' => 'An error occurred while syncing vouchers', 'error' => $th->getMessage()], 500);
+        }
     }
 }

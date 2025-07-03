@@ -4,6 +4,9 @@ import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
 import { showLoader, hideLoader, swalNotification } from '@/mixins/helpers.mixin.js';
 import { notify } from '@/mixins/notify';
+import AdminLayout from "@/Layouts/AdminLayout.vue";
+defineOptions({ layout: AdminLayout });
+
 const props = defineProps({
     package_id: {
         type: Number,
@@ -24,6 +27,8 @@ const voucher = ref(null);
 const checkingStatus = ref(false);
 const processingPayment = ref(false);
 let packageId = ref(props.package_id);
+const iHaveAVoucher = ref(false);
+const userVoucherCode = ref('');
 const formatPhoneNumber = (number) => {
     // Format phone number to international format if needed
     /// if the number starts with 0, replace it with +256
@@ -53,20 +58,19 @@ async function purchaseVoucher() {
             return;
         }
         if (!packageId.value) {
-            swalNotification('warning', 'No package was selected. Please select a package to continue.')
-                .then(() => {
-                    window.history.back();
-                });
+            swalNotification('warning', 'No package was selected. Please select a package to continue.');
             return;
         }
         // format phone number
         phoneNumber.value = formatPhoneNumber(phoneNumber.value);
         processingPayment.value = true;
         showLoader();
-        const response = await axios.post('/api/payments/voucher', {
+        const payload = {
             phone_number: phoneNumber.value,
-            package_id: packageId
-        });
+            package_id: packageId.value,
+            voucher_code: iHaveAVoucher.value ? userVoucherCode.value : null,
+        };
+        const response = await axios.post('/api/payments/voucher', payload);
         hideLoader();
         swalNotification('success', response.data.message)
             .then(() => {
@@ -76,7 +80,10 @@ async function purchaseVoucher() {
                 checkTransactionStatus(); // Start checking status
             });
     } catch (error) {
-        swalNotification('error', error.response?.data?.message || 'Payment failed');
+        hideLoader();
+        processingPayment.value = false;
+        console.log(`Error purchasing voucher:`, error);
+        swalNotification('error', error.message || 'Payment failed');
     }
 }
 
@@ -87,7 +94,7 @@ function checkTransactionStatus() {
 
     const interval = setInterval(async () => {
         try {
-            const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}`);
+            const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}?voucher_code=${userVoucherCode.value || ''}`);
             if (response.data.voucher) {
                 clearInterval(interval);
                 voucher.value = response.data.voucher;
@@ -138,9 +145,10 @@ const printVoucherCode = () => {
                     </style>
                 </head>
                 <body>
-                    <h1>Voucher Code</h1>
-                    <div class="voucher-code">${voucher.value.code}</div>
-                    <p>Expires at: ${new Date(voucher.value.expires_at).toLocaleString()}</p>
+                    <center>
+                        <div class="voucher-code">${voucher.value.code}</div>
+                        <p>Expires at: ${new Date(voucher.value.expires_at).toLocaleString()}</p>
+                    </center>
                 </body>
             </html>
         `);
@@ -149,8 +157,6 @@ const printVoucherCode = () => {
     }
 };
 onMounted(() => {
-    // transactionId.value = 64661480;
-    // checkTransactionStatus();
     if (props.package_id) {
         packageId.value = props.package_id;
     }
@@ -160,10 +166,10 @@ onMounted(() => {
 <template>
 
     <Head title="Buy Voucher" />
-    <div class="min-vh-100 d-flex flex-column align-items-center justify-content-center gradient-bg py-5 text-white">
+    <div class="d-flex flex-column align-items-center justify-content-center gradient-bg py-5 text-white rounded">
 
         <!-- Logo and Title -->
-        <div class="text-center mb-4">
+        <div class="text-center mt-1">
             <img src="@/assets/images/superspotwifi-logo.png" alt="SuperSpot Wifi Logo"
                 class="img-fluid mb-3 rounded-circle logo" />
             <h2 class="fw-bold">SuperSpot Wifi</h2>
@@ -173,7 +179,7 @@ onMounted(() => {
         <!-- Voucher Card -->
         <div class="voucher-card p-4 w-100 text-white">
             <!-- Package Selection -->
-            <div class="mb-3" v-if="!packageId">
+            <div class="mb-3">
                 <label class="form-label">Select Package</label>
                 <select v-model="packageId" class="form-select input-rounded" :disabled="processingPayment">
                     <option :value="null" disabled>Select a package</option>
@@ -188,9 +194,25 @@ onMounted(() => {
                 <input type="text" v-model="phoneNumber" class="form-control input-rounded"
                     :disabled="processingPayment" placeholder="+2567XXXXXXXX" />
             </div>
+            <div class="form-check" v-if="!iHaveAVoucher">
+                <input type="checkbox" class="form-check-input" v-model="iHaveAVoucher" name="customCheck"
+                    id="customCheck1">
+                <label class="form-check-label" for="customCheck1">I already have a voucher</label>
+            </div>
+            <!-- Voucher Code Input -->
+            <div class="mb-3" v-if="iHaveAVoucher">
+                <label class="form-label">Enter Voucher Code</label>
+                <div class="input-group">
+                    <input type="text" v-model="userVoucherCode" class="form-control input-rounded"
+                        placeholder="Enter voucher code" :disabled="processingPayment" />
+                    <button class="btn btn-outline-secondary" @click="iHaveAVoucher = !iHaveAVoucher">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
 
+            </div>
             <!-- Submit Button -->
-            <div class="d-grid">
+            <div class="d-grid mt-3">
                 <button class="btn btn-gradient text-white fw-bold" @click="purchaseVoucher"
                     :disabled="processingPayment">
                     <i class="fas fa-wallet me-2"></i> Send Payment Prompt
@@ -208,17 +230,18 @@ onMounted(() => {
                 <h5>Your Voucher Code</h5>
                 <div class="mt-1">
                     <div class="d-flex justify-content-between align-items-center">
-                        <strong class="text-uppercase">{{ voucher.code }}</strong>
+                        <strong class="text-uppercase">{{ voucher?.code }}</strong>
                     </div>
-                    <p class="mb-0 mt-2 small">Expires at: {{ new Date(voucher.expires_at).toLocaleString() }}</p>
+                    <p class="mb-0 mt-2 small">Expires at: {{ voucher?.expires_at ? new
+                        Date(voucher.expires_at).toLocaleString() : '' }}</p>
                 </div>
                 <!-- print voucher code -->
                 <div class="d-flex justify-content-end mt-3 gap-3">
-                    <button class="btn btn-outline-light btn-sm" @click="copyVoucherCode">
+                    <button class="btn btn-outline-success btn-sm" @click="copyVoucherCode">
                         <i class="fas fa-copy"></i> Copy Code
                     </button>
                     <!-- print code -->
-                    <button class="btn btn-outline-light btn-sm ms-2" @click="printVoucherCode">
+                    <button class="btn btn-outline-success btn-sm ms-2" @click="printVoucherCode">
                         <i class="fas fa-print"></i> Print Voucher
                     </button>
                 </div>
