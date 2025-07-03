@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>SuperSpot Wifi Voucher Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
     <!-- Favicon & Metadata -->
     <link rel="icon" href="{{ asset('superspotwifi-logo.png') }}" type="image/x-icon">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -21,27 +21,43 @@
     <meta name="twitter:title" content="Buy Internet Voucher - SuperSpot Wifi">
     <meta name="twitter:description" content="Buy your SuperSpot Wifi internet voucher securely and instantly online.">
     <meta name="twitter:image" content="{{ asset('superspotwifi-logo.png') }}">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <!-- Fonts & Styles -->
+
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #5327ef 0%, #ff5f6d 100%);
             color: white;
             min-height: 100vh;
-            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
         .card-container {
             background: #0d0c20;
             border-radius: 15px;
             padding: 2rem;
+            width: 100%;
             max-width: 360px;
-            width: 90%;
-            margin: auto;
-            margin-top: 5vh;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        .logo {
+            width: 100px;
+            display: block;
+            margin: 0 auto 1rem;
+        }
+        h5 {
+            text-align: center;
+            margin-bottom: 1rem;
         }
         .tabs {
             display: flex;
@@ -50,61 +66,98 @@
         }
         .tab {
             flex: 1;
-            padding: 0.6rem;
             text-align: center;
             font-weight: bold;
+            padding: 10px;
             cursor: pointer;
-            background: transparent;
-            color: white;
             border-bottom: 3px solid transparent;
+            transition: border-color 0.3s;
         }
         .tab.active {
             border-bottom: 3px solid #ff5f6d;
         }
+        form {
+            position: relative;
+        }
         .form-control {
+            width: 100%;
+            padding: 10px 50px 10px 15px;
+            border: none;
             border-radius: 30px;
-            padding-right: 60px;
+            outline: none;
+            font-size: 1rem;
+        }
+        .position-relative {
+            position: relative;
         }
         .ok-btn {
             position: absolute;
             right: 10px;
-            top: 5px;
+            top: 50%;
+            transform: translateY(-50%);
             height: 38px;
+            width: 38px;
             border-radius: 50%;
             background: white;
             color: #5327ef;
             border: none;
             font-weight: bold;
+            cursor: pointer;
+        }
+        .alert {
+            margin-top: 1rem;
+            background: #dc3545;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .plans {
+            margin-top: 1rem;
         }
         .plans .btn {
+            display: block;
             width: 100%;
+            text-align: center;
             margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 6px;
             background: linear-gradient(90deg, #00f0ff, #ff00c8);
             color: white;
             font-weight: 600;
-            border: none;
+            text-decoration: none;
+            transition: background 0.3s;
         }
-        .logo {
-            width: 100px;
-            margin: 0 auto 1rem;
-            display: block;
+        .plans .btn:hover {
+            opacity: 0.9;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #444;
+            margin: 1rem 0;
         }
         .powered {
             font-size: 0.85rem;
             color: #aaa;
             text-align: center;
-            margin-top: 1rem;
         }
         .powered span {
             color: #00f0ff;
+        }
+
+        @media (max-width: 400px) {
+            .card-container {
+                padding: 1.5rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="card-container">
         <img src="{{ asset('superspotwifi-logo.png') }}" alt="SuperSpot Wifi Logo" class="logo">
-        <h5 class="text-center mb-3">Sign in to SuperSpot Wifi</h5>
-        
+        <h5>Sign in to SuperSpot Wifi</h5>
+
         <div class="tabs">
             <div class="tab active">VOUCHER</div>
             {{-- <div class="tab">VIP</div> --}}
@@ -118,21 +171,22 @@
                 <button type="submit" class="ok-btn" @disabled(!$link_login)>GO</button>
             </div>
         </form>
-        <!-- show error message if exists -->
+
         @if(session('error') || $error)
-            <div class="alert alert-danger text-center">
+            <div class="alert">
                 {{ session('error')}} {{ $error }}
             </div>
         @endif
+
         <div class="plans">
             @foreach ($plans as $item)
-                
                 <a href="{{ url('buy-voucher/' . $item->id )}}" class="btn">{{ $item->name }} - UGX {{ number_format($item->price, 0) }}</a>
             @endforeach
         </div>
-        <hr/>
+
+        <hr>
         <div class="powered">
-            Get a Voucher at SHOP or select one of the plans above to Pay via Mobile Money<br>
+            Get a Voucher at SHOP or select one of the plans above to Pay via Mobile Money
             <hr/>
             Powered by <span>Eng. Godwin</span>
         </div>

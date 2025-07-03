@@ -33,14 +33,10 @@ class ConfigurationController extends Controller
             'host' => 'required|string|max:60',
             'port' => 'required|integer',
             'username' => 'required|string|max:100',
-            'password' => 'string',
+            'password' => 'string|nullable',
         ]);
 
         $data = $request->all();
-        // Encrypt the password before saving
-        if ($request->password && ($request->password != '0' || strtolower($request->password) != 'none')) {
-            $data['password'] = $this->encryptRouterPassword($data['password']);
-        }
         $configuration = RouterConfiguration::create($data);
         return response()->json([
             'message' => 'Router Configuration saved successfully',
@@ -58,7 +54,7 @@ class ConfigurationController extends Controller
             'host' => 'required|string|max:60',
             'port' => 'required|integer',
             'username' => 'required|string|max:100',
-            'password' => 'required|string',
+            'password' => 'nullable|string',
         ]);
 
         $configuration->update($request->all());
@@ -128,7 +124,11 @@ class ConfigurationController extends Controller
         $validated['session_timeout'] = $session_timeout;
 
         // format rate_limit
-        $validated['rate_limit'] = "{$validated['rate_limit']}M/{$validated['rate_limit']}M"; // rate_limit is in Mbps
+        if ($validated['rate_limit'] === null || $validated['rate_limit'] === 0) {
+            $validated['rate_limit'] = null; // Ensure it's set to null if not provided
+        } else {
+            $validated['rate_limit'] = MikroTikService::convertToBytes($validated['rate_limit'], 'MB'); // Convert to bytes
+        }
 
         $validated['description'] = "{$validated['name']} - {$validated['price']} UGX";
         $package = VoucherPackage::create($validated);

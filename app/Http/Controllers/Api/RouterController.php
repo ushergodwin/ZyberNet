@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\RouterConfiguration;
 use App\Models\RouterLog;
-use App\Models\RouterProfile;
 use App\Models\Voucher;
 use App\Services\MikroTikService;
 use Illuminate\Http\Request;
