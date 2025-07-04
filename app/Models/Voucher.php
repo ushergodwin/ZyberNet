@@ -56,7 +56,8 @@ class Voucher extends Model
                     $mikrotik->createHotspotUser(
                         $voucher->code,
                         $voucher->code,
-                        $voucher->package->profile_name,
+                        $voucher->package->session_timeout,
+                        $voucher->package->profile_name
                     );
 
                     Log::info('Voucher created: ' . $voucher->code, [

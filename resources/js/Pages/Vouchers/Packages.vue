@@ -65,7 +65,39 @@ const openModal = (edit = false, voucherPackage = null) => {
     state.showModal = true;
     state.isEdit = edit;
     if (edit && voucherPackage) {
-        state.form = { ...voucherPackage };
+        let rate_limit = voucherPackage.rate_limit || 0;
+        if (rate_limit) {
+            rate_limit = rate_limit.split('/');
+            rate_limit = rate_limit.length > 0 ? rate_limit[0] : 0;
+        }
+
+        let limit_bytes_total = 0;
+        if (limit_bytes_total) {
+            limit_bytes_total = formatBytes(voucherPackage.limit_bytes_total);
+        }
+
+        let session_timeout = voucherPackage.session_timeout;
+        if (session_timeout) {
+            session_timeout = session_timeout.split('/');
+            session_timeout = session_timeout.length > 0 ? session_timeout[0] : 1;
+        } else {
+            session_timeout = 1; // Default to 1 hour if not set
+        }
+        state.form = {
+            rate_limit: voucherPackage.js_rate_limit,
+            session_timeout: voucherPackage.js_session_timeout,
+            limit_bytes_total: voucherPackage.js_limit_bytes_total,
+            shared_users: voucherPackage.shared_users || 1,
+            rate_limit_unit: voucherPackage.rate_limit_unit || 'Mbps',
+            limit_bytes_unit: voucherPackage.limit_bytes_unit || 'MB',
+            session_timeout_unit: voucherPackage.session_timeout_unit || 'hours',
+            id: voucherPackage.id,
+            price: voucherPackage.price || 1000,
+            name: voucherPackage.name || "",
+            profile_name: voucherPackage.profile_name || "",
+            description: voucherPackage.description || "",
+        };
+        console.log("state.form", state.form);
     } else {
         state.form = {
             price: 1000,
@@ -158,6 +190,19 @@ const activateOrDeactivatePackage = (event, packageId) => {
             }
         });
 };
+
+// convert bytes to MB or GB
+const formatBytes = (bytes) => {
+    // if bytes are less than a gb, return in MB
+    if (bytes < 1024 * 1024) {
+        return (bytes / 1024).toFixed(2);
+    }
+    // if bytes are greater than a gb, return in GB
+    if (bytes >= 1024 * 1024) {
+        return (bytes / (1024 * 1024)).toFixed(2);
+    }
+    return bytes;
+};
 </script>
 
 <template>
@@ -202,7 +247,7 @@ const activateOrDeactivatePackage = (event, packageId) => {
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 <a href="#" class="text-danger" @click="deletePackage(pkg.id)">
-                                    <i class="fas fa-trash"></i>
+                                    <i class="fas fa-trash-alt"></i>
                                 </a>
                                 <!-- Deactivate package-->
                                 <div class="form-check form-switch">

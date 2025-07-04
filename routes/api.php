@@ -63,6 +63,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/transaction', [VoucherController::class, 'saveVoucherTransaction'])->name('configuration.saveVoucherTransaction');
         // generate voucher
         Route::post('/generate', [VoucherController::class, 'generateVoucher'])->name('configuration.generateVoucher');
+        // destroy voucher
+        Route::delete('/{code}', [VoucherController::class, 'destroy'])->name('configuration.destroyVoucher');
     });
 
     //admin routes

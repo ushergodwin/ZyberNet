@@ -25,7 +25,8 @@ class RouterController extends Controller
                 $mikrotik->createHotspotUser(
                     $voucher->code,
                     $voucher->code,
-                    $voucher->package->profile
+                    $voucher->package->session_timeout,
+                    $voucher->package->profile_name,
                 );
             }
 

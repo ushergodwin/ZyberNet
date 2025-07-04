@@ -157,16 +157,22 @@ class ConfigurationController extends Controller
     {
         $package = VoucherPackage::findOrFail($id);
 
-        $request->validate([
-            'name' => 'required|string|max:100',
-            'duration_minutes' => 'required|integer',
+        $validated = $request->validate([
+            'name'  => 'required|string|max:100',
             'price' => 'required|numeric',
-            'speed_limit' => 'nullable|integer',
-            'is_active' => 'boolean',
-            'profile' => 'required|string|max:100', // Ensure profile is a string and optional
+            'profile_name' => 'required|string|max:100',
+            'rate_limit' => 'integer|max:100',
+            'session_timeout' => 'integer|max:100',
+            'limit_bytes_total' => 'integer',
+            'shared_users' => 'required|integer|min:1',
+            'description' => 'nullable|string|max:255',
         ]);
 
-        $package->update($request->all());
+        $package->update($validated);
+        $profile = VoucherPackage::findOrFail($id);
+        $router = RouterConfiguration::first();
+        $routerService = new MikroTikService($router);
+        $routerService->pushProfileToRouter($profile);
         return response()->json([
             'message' => 'Voucher Package updated successfully',
             'package' => $package,

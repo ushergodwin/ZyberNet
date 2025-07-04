@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use App\Models\VoucherPackage;
 use App\Models\Transaction;
 use App\Models\Voucher;
+use App\Services\VoucherService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -125,13 +126,16 @@ class PaymentController extends Controller
                 // Calculate expiration date based on session timeout
                 $expiresAt = now()->add($session_timeout_unit === 'd' ? $session_timeout . ' days' : $session_timeout . ' hours');
 
-                $code = strtoupper(Str::random(8));
-                $voucher = Voucher::create([
+                $code = "SSW" . strtoupper(Str::random(6));
+                $voucher = [
                     'code'           => $code,
                     'transaction_id' => $transaction->id,
                     'package_id'     => $transaction->package_id,
                     'expires_at'     => $expiresAt,
-                ]);
+                ];
+                // Create voucher
+                $voucherService = new VoucherService();
+                $voucher = $voucherService->createVouchersAndPushToRouter([$voucher])[0];
             }
             return response()->json([
                 'message' => 'Transaction status updated successfully',

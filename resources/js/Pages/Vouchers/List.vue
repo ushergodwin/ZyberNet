@@ -219,6 +219,42 @@ const saveTransaction = () => {
 const goToPurchase = () => {
     router.visit('/vouchers/purchase');
 };
+
+// delete voucher 
+const sendDeleteVoucherRequest = () => {
+    showLoader('Deleting voucher...');
+    axios.delete(`/api/vouchers/${state.selectedVoucher.code}`)
+        .then(response => {
+            hideLoader();
+            if (response.status === 200) {
+                swalNotification("success", response.data.message || "Voucher deleted successfully.");
+                loadVouchers(state.pagination.current_page);
+            } else {
+                swalNotification("error", "Failed to delete voucher.");
+            }
+        })
+        .catch(error => {
+            hideLoader();
+            swalNotification("error", "Failed to delete voucher.");
+            console.error(error);
+        });
+}
+
+const deleteVoucher = (voucher) => {
+    state.selectedVoucher = voucher;
+    swalConfirm.fire({
+        title: "Delete Voucher",
+        text: `Are you sure you want to delete this voucher? It will also be deleted from the router and this action cannot be undone.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Yes, delete!",
+        reverseButtons: true,
+    }).then(result => {
+        if (result.isConfirmed) {
+            sendDeleteVoucherRequest();
+        }
+    });
+};
 </script>
 
 
@@ -268,6 +304,9 @@ const goToPurchase = () => {
                                 </a>
                                 <a href="#" class="text-info" @click="printSingleVoucher(voucher)">
                                     <i class="fas fa-print text-info"></i>
+                                </a>
+                                <a href="#" class="text-danger" @click="deleteVoucher(voucher)">
+                                    <i class="fas fa-trash-alt text-danger"></i>
                                 </a>
                             </div>
                         </td>
@@ -418,7 +457,7 @@ const goToPurchase = () => {
                                     <select v-model="state.form.package_id" class="form-select input-rounded">
                                         <option value="" disabled> -- select a plan --</option>
                                         <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">{{ pkg.name
-                                        }} - {{ pkg.formatted_price }}</option>
+                                            }} - {{ pkg.formatted_price }}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">

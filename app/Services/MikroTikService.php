@@ -38,12 +38,16 @@ class MikroTikService
             }
             $this->router = $router;
             // Initialize the RouterOS client with the router configuration
-            $this->client = new Client([
-                'host' => $router->host,
-                'user' => $router->username,
-                'pass' => $router->password ?? '', // Use empty string if password is null
-                'port' => $router->port,
-            ]);
+            if (config('app.env') == 'local') {
+                $this->client = null; // No client in local environment
+            } else {
+                $this->client = new Client([
+                    'host' => $router->host,
+                    'user' => $router->username,
+                    'pass' => $router->password ?? '', // Use empty string if password is null
+                    'port' => $router->port,
+                ]);
+            }
             // create log entry for successful initialization
             RouterLog::create([
                 'voucher_id' => null, // No voucher ID at this point
@@ -68,40 +72,61 @@ class MikroTikService
         }
     }
 
-    public function createHotspotUser(string $username, string $password, string $profile = 'default')
+    public function createHotspotUser(string $username, string $password, string $limitUpTime, string $profile)
     {
         try {
+            if (!$this->client) {
+                Log::error('MikroTik client is not initialized. Cannot create hotspot user.', [
+                    'username' => $username,
+                    'profile' => $profile,
+                ]);
+                return;
+            }
+            // Convert session timeout like "3h" to "03:00:00"
+            $limitUpTime = $this->sessionTimeoutToLimitUptime($limitUpTime);
+
             $query = new Query('/ip/hotspot/user/add');
             $query->equal('name', $username)
                 ->equal('password', $password)
-                ->equal('profile', $profile);
+                ->equal('profile', $profile)
+                ->equal('limit-uptime', $limitUpTime)
+                ->equal('uptime-reset', 'no')          // <- critical for session persistence
+                ->equal('disabled', 'false')           // <- just in case
+                ->equal('comment', 'Created via Captive Portal');
 
             // create log entry
             RouterLog::create([
-                'voucher_id' => $username, // You can set this if you have a voucher ID
+                'voucher_id' => $username,
                 'action' => 'create_hotspot_user',
                 'success' => true,
                 'message' => "Created user $username with profile $profile",
-                'is_manual' => false, // Set to true if this is a manual action,
-                'router_name' => $this->router->name, // Store the router name or host
+                'is_manual' => false,
+                'router_name' => $this->router->name,
             ]);
+
             return $this->client->query($query)->read();
         } catch (\Throwable $th) {
-            //throw $th;
-            // create log entry for error
+            // log failure
             RouterLog::create([
-                'voucher_id' => $username, // You can set this if you have a voucher ID
+                'voucher_id' => $username,
                 'action' => 'create_hotspot_user',
                 'success' => false,
                 'message' => $th->getMessage(),
-                'is_manual' => false, // Set to true if this is a manual action
+                'is_manual' => false,
             ]);
         }
     }
 
+
     // get profiles in MikroTik
     public function getProfiles()
     {
+        if (!$this->client) {
+            Log::error('MikroTik client is not initialized. Cannot create hotspot user.', [
+                'action' => 'getProfiles',
+            ]);
+            return;
+        }
         $query = new Query('/ip/hotspot/user/profile/print');
         return $this->client->query($query)->read();
     }
@@ -109,6 +134,12 @@ class MikroTikService
     // get router name 
     public function getRouterName()
     {
+        if (!$this->client) {
+            Log::error('MikroTik client is not initialized. Cannot get router name.', [
+                'action' => 'getRouterName',
+            ]);
+            return;
+        }
         $query = new \RouterOS\Query('/system/identity/print');
         $response = $this->client->query($query)->read();
 
@@ -159,54 +190,79 @@ class MikroTikService
     public function pushProfileToRouter($profile)
     {
         try {
-            // Step 1: Check if profile already exists on router
+            if (!$this->client) {
+                Log::error('MikroTik client is not initialized. Cannot push profile to router.', [
+                    'profile' => $profile->profile_name,
+                ]);
+                return;
+            }
+            // Step 1: Check if profile already exists
             $checkQuery = new Query('/ip/hotspot/user/profile/print');
             $checkQuery->where('name', $profile->profile_name);
             $existingProfiles = $this->client->query($checkQuery)->read();
 
-            // If it exists, skip creation
+            $profileFields = [
+                'name' => $profile->profile_name,
+                'shared-users' => $profile->shared_users ?? 1,
+                'session-timeout' => $profile->session_timeout,
+                'keepalive-timeout' => '2m',
+                'idle-timeout' => '5m',
+                'mac-cookie-timeout' => $profile->session_timeout,
+            ];
+
+            if ($profile->rate_limit) {
+                $profileFields['rate-limit'] = $profile->rate_limit;
+            }
+
+            if ($profile->limit_bytes_total) {
+                $profileFields['limit-bytes-total'] = $profile->limit_bytes_total;
+            }
+
             if (!empty($existingProfiles)) {
+                // Update existing profile
+                $existingId = $existingProfiles[0]['.id'];
+
+                $updateQuery = new Query('/ip/hotspot/user/profile/set');
+                $updateQuery->equal('.id', $existingId);
+                foreach ($profileFields as $key => $value) {
+                    $updateQuery->equal($key, $value);
+                }
+
+                $this->client->query($updateQuery)->read();
+
                 RouterLog::create([
                     'voucher_id' => null,
-                    'action' => 'push_profile_to_router',
+                    'action' => 'update_profile_on_router',
                     'success' => true,
-                    'message' => "Profile '{$profile->profile_name}' already exists on router",
+                    'message' => "Updated profile '{$profile->profile_name}' on router",
                     'is_manual' => false,
                     'router_name' => $this->router->name ?? 'Unknown Router',
                 ]);
-                return $existingProfiles[0]; // return existing profile info
+
+                $status = 'updated';
+            } else {
+                // Create new profile
+                $addQuery = new Query('/ip/hotspot/user/profile/add');
+                foreach ($profileFields as $key => $value) {
+                    $addQuery->equal($key, $value);
+                }
+
+                $this->client->query($addQuery)->read();
+
+                RouterLog::create([
+                    'voucher_id' => null,
+                    'action' => 'create_profile_on_router',
+                    'success' => true,
+                    'message' => "Created profile '{$profile->profile_name}' on router",
+                    'is_manual' => false,
+                    'router_name' => $this->router->name ?? 'Unknown Router',
+                ]);
+
+                $status = 'created';
             }
 
-            // Step 2: Prepare and add new profile
-            $query = new Query('/ip/hotspot/user/profile/add');
-            $query->equal('name', $profile->profile_name)
-                ->equal('shared-users', $profile->shared_users);
-
-            if ($profile->rate_limit) {
-                $query->equal('rate-limit', $profile->rate_limit);
-            }
-            if ($profile->session_timeout) {
-                $query->equal('session-timeout', $profile->session_timeout);
-            }
-            if ($profile->limit_bytes_total) {
-                $query->equal('limit-bytes-total', $profile->limit_bytes_total);
-            }
-
-            $data = $this->client->query($query)->read();
-
-            // Step 3: Log success
-            RouterLog::create([
-                'voucher_id' => null,
-                'action' => 'push_profile_to_router',
-                'success' => true,
-                'message' => "Profile '{$profile->profile_name}' successfully pushed to router",
-                'is_manual' => false,
-                'router_name' => $this->router->name ?? 'Unknown Router',
-            ]);
-
-            return $data;
+            return ['status' => $status, 'profile' => $profile->profile_name];
         } catch (\Throwable $th) {
-            // Step 4: Log failure
             RouterLog::create([
                 'voucher_id' => null,
                 'action' => 'push_profile_to_router',
@@ -218,7 +274,7 @@ class MikroTikService
 
             Log::error('Failed to push profile to router: ' . $th->getMessage(), [
                 'router' => $this->router->name ?? 'Unknown Router',
-                'profile' => $profile->name,
+                'profile' => $profile->profile_name,
                 'trace' => $th->getTrace(),
             ]);
 
@@ -226,16 +282,55 @@ class MikroTikService
         }
     }
 
-
-    static  function convertToBytes(int|float $value, string $unit = 'MB'): int
+    public function deleteHotspotUser(string $username): bool
     {
-        $unit = strtoupper(trim($unit));
+        try {
+            if (!$this->client) {
+                Log::error('MikroTik client is not initialized. Cannot delete hotspot user.', [
+                    'username' => $username,
+                ]);
+                return false;
+            }
+            // Step 1: Fetch user ID
+            $query = new Query('/ip/hotspot/user/print');
+            $query->where('name', $username);
+            $result = $this->client->query($query)->read();
 
-        return match ($unit) {
-            'GB' => (int)($value * 1024 * 1024 * 1024),
-            'MB' => (int)($value * 1024 * 1024),
-            'KB' => (int)($value * 1024),
-            default => throw new InvalidArgumentException("Unsupported unit: $unit"),
-        };
+            if (empty($result)) {
+                throw new \Exception("User {$username} not found on the router.");
+            }
+
+            $userId = $result[0]['.id'];
+
+            // Step 2: Delete the user
+            $deleteQuery = new Query('/ip/hotspot/user/remove');
+            $deleteQuery->equal('.id', $userId);
+            $this->client->query($deleteQuery)->read();
+
+            // Step 3: Log success
+            RouterLog::create([
+                'voucher_id' => $username,
+                'action' => 'delete_hotspot_user',
+                'success' => true,
+                'message' => "Deleted user {$username} from router",
+                'is_manual' => false,
+                'router_name' => $this->router->name,
+            ]);
+
+            return true;
+        } catch (\Throwable $th) {
+            // Step 4: Log failure
+            RouterLog::create([
+                'voucher_id' => $username,
+                'action' => 'delete_hotspot_user',
+                'success' => false,
+                'message' => $th->getMessage(),
+                'is_manual' => false,
+                'router_name' => $this->router->name ?? 'Unknown Router',
+            ]);
+
+            // Step 5: Rethrow for upstream handling
+            throw new \Exception("Failed to delete user {$username}: " . $th->getMessage(), 0, $th);
+        }
     }
 }

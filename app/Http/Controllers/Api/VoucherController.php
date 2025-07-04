@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Services\VoucherService;
 
 class VoucherController extends Controller
 {
@@ -81,30 +82,43 @@ class VoucherController extends Controller
             'quantity'   => 'required|integer|min:1',
         ]);
 
-        $package = $request->input('package_id');
+        $package = VoucherPackage::findOrFail($request->input('package_id'));
         $quantity = $request->input('quantity');
 
-        $vouchers = [];
+        $voucherDataList = [];
+
         for ($i = 0; $i < $quantity; $i++) {
-            $voucherPackage = VoucherPackage::findOrFail($package);
-            $session_timeout = substr($voucherPackage->session_timeout, 0, -1); // Remove the last character (h or d)
-            $session_timeout_unit = substr($voucherPackage->session_timeout, -1); // Get the last character (h or d)
-            // Calculate expiration date based on session timeout
-            $expiresAt = now()->add($session_timeout_unit === 'd' ? $session_timeout . ' days' : $session_timeout . ' hours');
-            $code = strtoupper(Str::random(8)); // Generate a random voucher code
-            $vouchers[] = Voucher::create([
-                'code'       => $code,
-                'package_id' => $package,
-                'expires_at' => $expiresAt,
-            ]);
+            $session_timeout = $package->session_timeout;
+            $duration = (int) substr($session_timeout, 0, -1);
+            $unit = substr($session_timeout, -1);
+
+            $expiresAt = now()->add($unit === 'd' ? "{$duration} days" : "{$duration} hours");
+            $code = "SSW" . strtoupper(Str::random(6));
+            $voucherDataList[] = [
+                'code'            => $code,
+                'package_id'      => $package->id,
+                'expires_at'      => $expiresAt,
+                'session_timeout' => $session_timeout,
+                'profile_name'    => $package->profile_name,
+            ];
         }
 
-        return response()->json([
-            'message' => 'Vouchers generated successfully',
-            'vouchers' => $vouchers,
-            'sync_vouchers' => config('app.sync_vouchers_from_local') ? true : false,
-        ]);
+        try {
+            $voucherService = new VoucherService();
+            $vouchers = $voucherService->createVouchersAndPushToRouter($voucherDataList);
+
+            return response()->json([
+                'message' => 'Vouchers created and pushed to MikroTik successfully',
+                'vouchers' => $vouchers,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Voucher creation failed',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
+
 
     // saveVoucherTransaction
     public function saveVoucherTransaction(Request $request, $id)
@@ -171,6 +185,26 @@ class VoucherController extends Controller
                 'error' => $th->getMessage(),
             ]);
             return response()->json(['message' => 'An error occurred while syncing vouchers', 'error' => $th->getMessage()], 500);
+        }
+    }
+
+    // deleteVoucher
+    public function destroy($code)
+    {
+        try {
+            $voucher = Voucher::where('code', $code)->first();
+            if (!$voucher) {
+                return response()->json(['message' => 'Voucher not found'], 202);
+            }
+            $voucherService = new VoucherService();
+            $voucherService->deleteVoucher($code);
+            return response()->json(['message' => 'Voucher deleted from router and database successfully']);
+        } catch (\Throwable $e) {
+            Log::error('Failed to delete voucher: ' . $e->getMessage(), [
+                'code' => $code,
+                'trace' => $e->getTrace(),
+            ]);
+            return response()->json(['message' => 'Failed to delete voucher', 'error' => $e->getMessage()], 500);
         }
     }
 }
