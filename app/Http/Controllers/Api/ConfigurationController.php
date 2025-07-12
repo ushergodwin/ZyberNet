@@ -21,14 +21,20 @@ class ConfigurationController extends Controller
         $configurations = RouterConfiguration::when($request->has('search'), function ($query) use ($request) {
             $query->where('name', 'like', '%' . $request->search . '%')
                 ->orWhere('host', 'like', '%' . $request->search . '%');
-        })->paginate(10);
+        });
+
+        if ($request->no_paging) {
+            $configurations = $configurations->get();
+        } else {
+            $configurations = $configurations->paginate(10);
+        }
         return response()->json($configurations);
     }
 
     // save Router Configuration
     public function createRouter(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:100',
             'host' => 'required|string|max:60',
             'port' => 'required|integer',
@@ -36,7 +42,13 @@ class ConfigurationController extends Controller
             'password' => 'string|nullable',
         ]);
 
-        $data = $request->all();
+        $data = [
+            'name' => $validated['name'],
+            'host' => $validated['host'],
+            'port' => $validated['port'],
+            'username' => $validated['username'],
+            'password' => $validated['password'] ?? null, // Allow password to be nullable
+        ];
         $configuration = RouterConfiguration::create($data);
         return response()->json([
             'message' => 'Router Configuration saved successfully',
@@ -49,7 +61,7 @@ class ConfigurationController extends Controller
     {
         $configuration = RouterConfiguration::findOrFail($id);
 
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:100',
             'host' => 'required|string|max:60',
             'port' => 'required|integer',
@@ -57,7 +69,7 @@ class ConfigurationController extends Controller
             'password' => 'nullable|string',
         ]);
 
-        $configuration->update($request->all());
+        $configuration->update($validated);
         return response()->json([
             'message' => 'Router Configuration updated successfully',
             'configuration' => $configuration,
@@ -86,6 +98,8 @@ class ConfigurationController extends Controller
     {
         $packages = VoucherPackage::when($request->has('search'), function ($query) use ($request) {
             $query->where('name', 'like', '%' . $request->search . '%');
+        })->when($request->has('router_id'), function ($query) use ($request) {
+            $query->where('router_id', $request->router_id);
         })
             // ->where('is_active', true) // Only active packages
             ->orderBy('created_at', 'desc')
@@ -98,6 +112,66 @@ class ConfigurationController extends Controller
     // save Voucher Package
     public function createVoucherPackage(Request $request)
     {
+        $validated = $request->validate([
+            'name'  => 'required|string|max:100',
+            'price' => 'required|numeric',
+            'profile_name' => 'required|string|max:100',
+            'rate_limit' => 'integer|max:100',
+            'session_timeout' => 'integer|max:100',
+            'limit_bytes_total' => 'integer',
+            'shared_users' => 'required|integer|min:1',
+            'description' => 'nullable|string|max:255',
+            'router_id' => 'required|exists:router_configurations,id',
+        ]);
+
+        $limit_bytes_total_unit = $request->input('limit_bytes_total_unit', 'MB');
+        $limit_bytes_total = $request->input('limit_bytes_total', 0);
+
+        if ($limit_bytes_total !== 0 && $limit_bytes_total !== null) {
+            $validated['limit_bytes_total'] = MikroTikService::convertToBytes($limit_bytes_total, $limit_bytes_total_unit);
+        } else {
+            $validated['limit_bytes_total'] = null; // Ensure it's set to null if not provided
+        }
+
+        // format session_timeout using session_timeout_unit
+        $session_timeout_unit = $request->input('session_timeout_unit', 'hours');
+        $session_timeout = $session_timeout_unit === 'days' ? $validated['session_timeout'] . 'd' : $validated['session_timeout'] . 'h';
+        $validated['session_timeout'] = $session_timeout;
+
+        // format rate_limit
+        if ($validated['rate_limit'] === null || $validated['rate_limit'] === 0) {
+            $validated['rate_limit'] = null; // Ensure it's set to null if not provided
+        } else {
+            $validated['rate_limit'] = MikroTikService::convertToBytes($validated['rate_limit'], 'MB'); // Convert to bytes
+        }
+
+        $validated['description'] = "{$validated['name']} - {$validated['price']} UGX";
+        $package = VoucherPackage::create($validated);
+
+        // create router profile if it doesn't exist
+        if (config('app.env') != 'local') {
+            $router = RouterConfiguration::findOrFail($validated['router_id']);
+            $routerService = new MikroTikService($router);
+            $routerService->pushProfileToRouter($package);
+        }
+        return response()->json([
+            'message' => 'Voucher Package saved successfully',
+            'package' => $package,
+        ]);
+    }
+
+    //getVoucherPackage
+    public function getVoucherPackage($id)
+    {
+        $package = VoucherPackage::findOrFail($id);
+        return response()->json($package);
+    }
+
+    // update Voucher Package
+    public function updateVoucherPackage(Request $request, $id)
+    {
+        $package = VoucherPackage::with('router')->findOrFail($id);
+
         $validated = $request->validate([
             'name'  => 'required|string|max:100',
             'price' => 'required|numeric',
@@ -131,47 +205,10 @@ class ConfigurationController extends Controller
         }
 
         $validated['description'] = "{$validated['name']} - {$validated['price']} UGX";
-        $package = VoucherPackage::create($validated);
-
-        // create router profile if it doesn't exist
-        if (config('app.env') != 'local') {
-            $router = RouterConfiguration::first();
-            $routerService = new MikroTikService($router);
-            $routerService->pushProfileToRouter($package);
-        }
-        return response()->json([
-            'message' => 'Voucher Package saved successfully',
-            'package' => $package,
-        ]);
-    }
-
-    //getVoucherPackage
-    public function getVoucherPackage($id)
-    {
-        $package = VoucherPackage::findOrFail($id);
-        return response()->json($package);
-    }
-
-    // update Voucher Package
-    public function updateVoucherPackage(Request $request, $id)
-    {
-        $package = VoucherPackage::findOrFail($id);
-
-        $validated = $request->validate([
-            'name'  => 'required|string|max:100',
-            'price' => 'required|numeric',
-            'profile_name' => 'required|string|max:100',
-            'rate_limit' => 'integer|max:100',
-            'session_timeout' => 'integer|max:100',
-            'limit_bytes_total' => 'integer',
-            'shared_users' => 'required|integer|min:1',
-            'description' => 'nullable|string|max:255',
-        ]);
 
         $package->update($validated);
-        $profile = VoucherPackage::findOrFail($id);
-        $router = RouterConfiguration::first();
-        $routerService = new MikroTikService($router);
+        $profile = VoucherPackage::with('router')->findOrFail($id);
+        $routerService = new MikroTikService($profile->router);
         $routerService->pushProfileToRouter($profile);
         return response()->json([
             'message' => 'Voucher Package updated successfully',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RouterConfiguration;
 use App\Models\Voucher;
 use App\Models\VoucherPackage;
 use Illuminate\Http\Request;
@@ -9,23 +10,12 @@ use Inertia\Inertia;
 
 class HotspotController extends Controller
 {
-    public function showLogin(Request $request)
+    public function index()
     {
-        session([
-            'link_login' => $request->query('link-login'),
-            'link_orig'  => $request->query('link-orig'),
-            'mac'        => $request->query('mac'),
-            'ip'         => $request->query('ip'),
-        ]);
 
-        $plans = VoucherPackage::all();
-        return view('hotspot.login', [
-            'link_login' => $request->query('link-login'),
-            'link_orig'  => $request->query('link-orig'),
-            'mac'        => $request->query('mac'),
-            'ip'         => $request->query('ip'),
-            'plans'      => $plans,
-            'error' => $request->query('error', null),
+        $plans = VoucherPackage::where('router_id', 1)->get();
+        return view('hotspot.index', [
+            'plans' => $plans,
         ]);
     }
 
@@ -34,19 +24,6 @@ class HotspotController extends Controller
         $request->validate([
             'voucher_code' => 'required',
         ]);
-        // check if the voucher code is valid
-        // $voucher = Voucher::where('code', $request->voucher_code)->first();
-        // $error = null;
-        // if (!$voucher) {
-        //     $error = 'Invalid voucher code.';
-        // } elseif ($voucher->is_expired) {
-        //     $error = 'This voucher has expired.';
-        // }
-
-        // if ($error) {
-        //     // If the voucher is invalid or expired, redirect back with an error message
-        //     return redirect()->back()->with('error', $error);
-        // }
 
         $link_login = session('link_login', $request->query('link-login'));
 
@@ -89,13 +66,49 @@ class HotspotController extends Controller
     {
         $package = VoucherPackage::find($id);
         // Render the buy voucher page with the package details
-
+        $link_login = session('link_login', null);
         // get csrfToken
         $csrfToken = csrf_token();
         return Inertia::render('Vouchers/Buy', [
             'package_id' => $package ? $package->id : null,
             'csrfToken' => $csrfToken,
             'packages' => VoucherPackage::all(),
+            'wifi_name' => config('app.name', 'Hotspot WiFi'),
+            'link_login' => $link_login,
+        ]);
+    }
+
+    public function showWiFiLogin(Request $request)
+    {
+        $link_login = $request->post('link-login', null);
+        $link_orig = $request->post('link-orig', null);
+        $mac = $request->post('mac', null);
+        $ip = $request->post('ip', null);
+        $router_id = $request->post('router_id', null);
+
+        // check router exists
+        RouterConfiguration::findOrFail($router_id);
+        // store session data
+        session([
+            'link_login' => $link_login,
+            'link_orig'  => $link_orig,
+            'mac'        => $mac,
+            'ip'         => $ip,
+            'router_id'  => $router_id,
+        ]);
+
+        $plans = VoucherPackage::where('router_id', $router_id)
+            ->where('is_active', true)
+            ->get();
+
+        return view('hotspot.login', [
+            'link_login' => $link_login,
+            'link_orig'  => $link_orig,
+            'mac'        => $mac,
+            'ip'         => $ip,
+            'plans'      => $plans,
+            'router_id'  => $router_id,
+            'error'      => $request->query('error', null),
         ]);
     }
 }

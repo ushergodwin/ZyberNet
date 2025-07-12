@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { Head, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate } from "@/mixins/helpers.mixin.js";
@@ -22,6 +22,9 @@ const state = reactive({
         to: 0,
     },
     searchQuery: '',
+    routers: [],
+    selectedRouter: null,
+    selectedRouterId: 1,
 });
 
 const loadPayments = (page) => {
@@ -30,6 +33,9 @@ const loadPayments = (page) => {
     let url = `/api/transactions?page=${page}`;
     if (state.searchQuery) {
         url += `&search=${encodeURIComponent(state.searchQuery)}`;
+    }
+    if (state.selectedRouterId) {
+        url += `&router_id=${state.selectedRouterId}`;
     }
     axios.get(url)
         .then(response => {
@@ -64,6 +70,25 @@ const handleSearch = (query: string) => {
     state.searchQuery = query;
     loadPayments(1);
 };
+
+const loadRouters = () => {
+    axios.get('/api/configuration/routers?no_paging=true')
+        .then(response => {
+            state.routers = response.data;
+        })
+        .catch(error => {
+            console.error("Failed to load routers:", error);
+        });
+};
+
+// watch for changes in the selected router
+watch(() => state.selectedRouterId, (newId) => {
+    if (newId || newId === 0) {
+        loadPayments(1);
+        // set the selected router based on the ID
+        state.selectedRouter = state.routers.find(router => router.id === newId) || null;
+    }
+});
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
 
@@ -71,6 +96,7 @@ onMounted(() => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     loadPayments(1);
+    loadRouters();
     emitter.on('search', handleSearch);
 });
 onUnmounted(() => {
@@ -84,6 +110,15 @@ onUnmounted(() => {
         <Head title="Payments" />
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h3">Payments/Transactions</h4>
+            <!-- select router-->
+            <div class="form-group">
+                <select id="routerSelect" class="form-select" v-model="state.selectedRouterId">
+                    <option :value="0">All Routers</option>
+                    <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                        {{ router.name }}
+                    </option>
+                </select>
+            </div>
         </div>
 
         <!-- Your page content here -->

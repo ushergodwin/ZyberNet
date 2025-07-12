@@ -15,7 +15,8 @@ class VoucherPackage extends Model
         'limit_bytes_total',
         'shared_users',
         'description',
-        'is_active'
+        'is_active',
+        'router_id',
     ];
 
     protected $appends = [
@@ -99,5 +100,10 @@ class VoucherPackage extends Model
         if ($this->limit_bytes_total === null) return null;
 
         return $this->limit_bytes_total >= 1073741824 ? 'GB' : 'MB';
+    }
+
+    public function router()
+    {
+        return $this->belongsTo(RouterConfiguration::class, 'router_id');
     }
 }

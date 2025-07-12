@@ -17,25 +17,58 @@ class ReportsController extends Controller
     // get statistics data 
     public function getStatistics(Request $request)
     {
-
-        $totalRevenue = Transaction::where('status', 'successful')->sum('amount');
-        $cashRevenue = Transaction::where('status', 'successful')->where('channel', 'cash')->sum('amount');
-        $mobileMoneyRevenue = Transaction::where('status', 'successful')->where('channel', 'mobile_money')->sum('amount');
+        $routerId = $request->router_id;
+        $totalRevenue = Transaction::where('status', 'successful')->when($routerId, function ($query) use ($routerId) {
+            return $query->where('router_id', $routerId);
+        })->sum('amount');
+        $cashRevenue = Transaction::where('status', 'successful')->where('channel', 'cash')->where(function ($query) use ($routerId) {
+            if ($routerId) {
+                $query->where('router_id', $routerId);
+            }
+        })->sum('amount');
+        $mobileMoneyRevenue = Transaction::where('status', 'successful')->where('channel', 'mobile_money')
+            ->where(function ($query) use ($routerId) {
+                if ($routerId) {
+                    $query->where('router_id', $routerId);
+                }
+            })->sum('amount');
         // Ensure that the total revenue is formatted correctly
         $totalRevenue = number_format(intval($totalRevenue), 2);
         $statistics = [
             'total_users' => User::count(),
-            'total_vouchers' => Voucher::count(),
-            'active_vouchers' => Voucher::where('expires_at', '>', now())->count(),
-            'inactive_vouchers' => Voucher::where('expires_at', '>', now())->where('is_used', 0)->count(),
-            'expired_vouchers' => Voucher::where('expires_at', '<', now())->count(),
-            'used_vouchers' => Voucher::where('is_used', 1)->count(),
-            'unused_vouchers' => Voucher::where('is_used', 0)->count(),
-            'total_packages' => VoucherPackage::count(),
-            'active_routers' => RouterConfiguration::count(),
-            'transactions' => Transaction::count(),
-            'successful_transactions' => Transaction::where('status', 'successful')->count(),
-            'failed_transactions' => Transaction::where('status', 'failed')->count(),
+            'total_vouchers' => Voucher::when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })->count(),
+            'active_vouchers' => Voucher::where('expires_at', '>', now())
+                ->when($routerId, function ($query) use ($routerId) {
+                    return $query->where('router_id', $routerId);
+                })->count(),
+            'expired_vouchers' => Voucher::where('expires_at', '<', now())->when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })->count(),
+            'used_vouchers' => Voucher::where('is_used', 1)->when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })->count(),
+            'unused_vouchers' => Voucher::where('is_used', 0)->when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })->count(),
+            'total_packages' => VoucherPackage::when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })->count(),
+            'active_routers' => RouterConfiguration::when($routerId, function ($query) use ($routerId) {
+                return $query->where('id', $routerId);
+            })->count(),
+            'transactions' => Transaction::when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })->count(),
+            'successful_transactions' => Transaction::where('status', 'successful')
+                ->when($routerId, function ($query) use ($routerId) {
+                    return $query->where('router_id', $routerId);
+                })->count(),
+            'failed_transactions' => Transaction::where('status', 'failed')
+                ->when($routerId, function ($query) use ($routerId) {
+                    return $query->where('router_id', $routerId);
+                })->count(),
             'cash_revenue' => number_format(intval($cashRevenue), 2) . ' UGX',
             'mobile_money_revenue' => number_format(intval($mobileMoneyRevenue), 2) . ' UGX',
             'total_revenue' => $totalRevenue . ' UGX',

@@ -15,6 +15,7 @@ class RouterLog extends Model
         'message',
         'is_manual',
         'router_name',
+        'router_id',
     ];
 
     public function voucher()
@@ -24,5 +25,10 @@ class RouterLog extends Model
             return $voucher;
         }
         return null;
+    }
+
+    public function router()
+    {
+        return $this->belongsTo(RouterConfiguration::class, 'router_id');
     }
 }

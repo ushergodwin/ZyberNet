@@ -163,12 +163,71 @@
             cursor: pointer;
             color: #00f0ff;
         }
+        .submit-button {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #fff;
+        border-radius: 30px;
+        background: transparent;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.3s, color 0.3s;
+        margin-top: 10px;
+    }
+
+    .submit-button:hover {
+        background-color: #fff;
+        color: #0d0c20;
+    }
+    .plans-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: white;
+    font-size: 0.95rem;
+}
+
+.plans-table th,
+.plans-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+.plans-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #aaa;
+}
+
+.pay-btn {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 5px 10px;
+    background-color: transparent;
+    border: 1px solid #00f0ff;
+    border-radius: 4px;
+    color: #00f0ff;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.85rem;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.pay-btn:hover {
+    background-color: #00f0ff;
+    color: #0d0c20;
+}
+        .pay-btn:active {
+            background-color: #00c0cc;
+            color: #0d0c20;
+        }
     </style>
 </head>
 <body>
     <div class="card-container">
         <img src="{{ asset('superspotwifi-logo.png') }}" alt="SuperSpot Wifi Logo" class="logo">
-        <h5>Sign in to SuperSpot Wifi</h5>
+        <h5>Sign in to {{ config('app.name')}}</h5>
 
         <div class="tabs">
             <div class="tab active">VOUCHER</div>
@@ -180,8 +239,8 @@
             <input type="hidden" name="link_login" value="{{ $link_login }}">
             <div class="position-relative mb-3">
                 <input type="text" name="voucher_code" class="form-control" placeholder="Enter voucher code" required>
-                <button type="submit" class="ok-btn" @disabled(!$link_login)>GO</button>
             </div>
+            <button type="submit" class="submit-button" @disabled(!$link_login)>Connect</button>
         </form>
 
         @if(session('error') || $error)
@@ -189,16 +248,31 @@
                 {{ session('error')}} {{ $error }}
             </div>
         @endif
-
         <div class="plans">
-            @foreach ($plans as $item)
-                <a href="{{ url('buy-voucher/' . $item->id )}}" class="btn">{{ $item->name }} - UGX {{ number_format($item->price, 0) }}</a>
-            @endforeach
+            <table class="plans-table">
+                <thead>
+                    <tr>
+                        <th>Package</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($plans as $item)
+                        <tr>
+                            <td>{{ $item->name }}</td>
+                            <td>
+                                <a href="{{ url('buy-voucher/' . $item->id )}}" class="pay-btn">Pay</a>
+                                UGX {{ number_format($item->price, 0) }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
 
         <hr>
         <div class="powered">
-            Get a Voucher at SHOP for either of the plans listed above and  Pay with Cash or Mobile Money. 
+            Enter your voucher code to connect to {{ config('app.name')}} or buy a new voucher online and pay via mobile money.
             <br/><br/>Call <a href="tel:+256757058906" class="phone">+256 757 058906</a> for support
             <hr/>
             Powered by <a href="javascript:void(0)" class="phone" onclick="openWhatsAppLink()" > Eng. Godwin </a>

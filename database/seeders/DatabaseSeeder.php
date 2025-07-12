@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         // $this->call(UserSeeder::class);
         $this->call(AdminSeeder::class);
-        $this->call(VoucherPackageSeeder::class);
+        //$this->call(VoucherPackageSeeder::class);
+        $this->call(SetDefaultRouterIdOnRelatedTables::class);
     }
 }

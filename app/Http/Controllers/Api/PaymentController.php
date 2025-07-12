@@ -25,7 +25,7 @@ class PaymentController extends Controller
 
             $voucher_code = $validated['voucher_code'] ?? null;
 
-            $package = VoucherPackage::find($validated['package_id']);
+            $package = VoucherPackage::findOrFail($validated['package_id']);
             if (!$package) {
                 return response()->json(['message' => 'Package not found'], 202);
             }
@@ -62,6 +62,7 @@ class PaymentController extends Controller
                 'package_id'    => $package->id,
                 'response_json' => json_encode($paymentData),
                 'channel'       => 'mobile_money',
+                'router_id'     => $package->router_id,
             ]);
 
             if ($voucher_code) {
@@ -126,16 +127,19 @@ class PaymentController extends Controller
                 // Calculate expiration date based on session timeout
                 $expiresAt = now()->add($session_timeout_unit === 'd' ? $session_timeout . ' days' : $session_timeout . ' hours');
 
-                $code = "SSW" . strtoupper(Str::random(6));
+                $code = strtoupper(Str::random(6));
                 $voucher = [
                     'code'           => $code,
                     'transaction_id' => $transaction->id,
                     'package_id'     => $transaction->package_id,
                     'expires_at'     => $expiresAt,
+                    'session_timeout' => $transaction->package->session_timeout,
+                    'profile_name'   => $transaction->package->profile_name,
                 ];
                 // Create voucher
                 $voucherService = new VoucherService();
-                $voucher = $voucherService->createVouchersAndPushToRouter([$voucher])[0];
+                $router = $transaction->package->router;
+                $voucher = $voucherService->createVouchersAndPushToRouter([$voucher], $router)[0];
             }
             return response()->json([
                 'message' => 'Transaction status updated successfully',
@@ -158,20 +162,38 @@ class PaymentController extends Controller
     public function getTransactions(Request $request)
     {
         $transactions = Transaction::with('package')
-            ->when($request->search, function ($query) use ($request) {
+            ->when($request->has('router_id'), function ($query) use ($request) {
+                $routerId = $request->input('router_id');
                 $searchTerm = $request->input('search');
-                return $query->where('phone_number', 'like', '%' . $searchTerm . '%')
-                    //payment_id
-                    ->orWhere('payment_id', 'like', '%' . $searchTerm . '%')
-                    // status 
-                    ->orWhere('status', 'like', '%' . $searchTerm . '%')
-                    ->orWhereHas('package', function ($q) use ($request) {
-                        $searchTerm = $request->input('search');
-                        $q->where('name', 'like', '%' . $searchTerm . '%');
+
+                $query->where('router_id', $routerId);
+
+                if ($searchTerm) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('phone_number', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('payment_id', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('status', 'like', '%' . $searchTerm . '%')
+                            ->orWhereHas('package', function ($q2) use ($searchTerm) {
+                                $q2->where('name', 'like', '%' . $searchTerm . '%');
+                            });
                     });
+                }
+            }, function ($query) use ($request) {
+                $searchTerm = $request->input('search');
+
+                if ($searchTerm) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('phone_number', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('payment_id', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('status', 'like', '%' . $searchTerm . '%')
+                            ->orWhereHas('package', function ($q2) use ($searchTerm) {
+                                $q2->where('name', 'like', '%' . $searchTerm . '%');
+                            });
+                    });
+                }
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->paginate(50);
 
         return response()->json($transactions);
     }

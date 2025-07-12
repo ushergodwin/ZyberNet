@@ -5,6 +5,7 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { showLoader, hideLoader, swalNotification, swalConfirm } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 defineOptions({ layout: AdminLayout });
+import { watch } from "vue";
 const state = reactive({
     vouchersPackages: [],
     loading: false,
@@ -23,7 +24,10 @@ const state = reactive({
         limit_bytes_unit: 'MB', // Default unit
         id: 0,
         session_timeout_unit: 'hours', // Default unit for session timeout
-    }
+        router_id: 1, // Default router ID
+    },
+    routers: [],
+    selectedRouterId: 1, // For router selection
 });
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
@@ -32,6 +36,7 @@ onMounted(() => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     loadVoucherPackages();
+    getRouters();
 });
 
 const submitForm = () => {
@@ -84,9 +89,9 @@ const openModal = (edit = false, voucherPackage = null) => {
             session_timeout = 1; // Default to 1 hour if not set
         }
         state.form = {
-            rate_limit: voucherPackage.js_rate_limit,
-            session_timeout: voucherPackage.js_session_timeout,
-            limit_bytes_total: voucherPackage.js_limit_bytes_total,
+            rate_limit: voucherPackage.js_rate_limit || 0,
+            session_timeout: voucherPackage.js_session_timeout || 0,
+            limit_bytes_total: voucherPackage.js_limit_bytes_total || 0,
             shared_users: voucherPackage.shared_users || 1,
             rate_limit_unit: voucherPackage.rate_limit_unit || 'Mbps',
             limit_bytes_unit: voucherPackage.limit_bytes_unit || 'MB',
@@ -96,6 +101,7 @@ const openModal = (edit = false, voucherPackage = null) => {
             name: voucherPackage.name || "",
             profile_name: voucherPackage.profile_name || "",
             description: voucherPackage.description || "",
+            router_id: voucherPackage.router_id,
         };
         console.log("state.form", state.form);
     } else {
@@ -112,6 +118,7 @@ const openModal = (edit = false, voucherPackage = null) => {
             limit_bytes_unit: 'MB', // Default unit
             id: 0, // Reset ID for new package
             session_timeout_unit: 'hours', // Default unit for session timeout
+            router_id: state.selectedRouterId || 1, // Use selected router ID or default to 1
         };
     }
 };
@@ -119,7 +126,7 @@ const openModal = (edit = false, voucherPackage = null) => {
 const loadVoucherPackages = () => {
     // pagination and loading state
     state.loading = true;
-    axios.get('/api/configuration/vouchers/packages')
+    axios.get(`/api/configuration/vouchers/packages?router_id=${state.selectedRouterId}`)
         .then((res) => {
             state.vouchersPackages = res.data.packages;
             state.loading = false;
@@ -203,6 +210,41 @@ const formatBytes = (bytes) => {
     }
     return bytes;
 };
+
+// get routers
+const getRouters = () => {
+    axios.get('/api/configuration/routers?no_paging=true')
+        .then((res) => {
+            state.routers = res.data;
+        })
+        .catch((err) => {
+            swalNotification('error', err.response.data.message || 'Failed to load routers.');
+        });
+};
+
+// watch for changes in router_id
+watch(() => state.selectedRouterId, (newRouterId) => {
+    if (newRouterId) {
+        state.form.router_id = newRouterId;
+    } else {
+        state.form.router_id = null; // Reset if "All Routers" is selected
+    }
+    if (newRouterId || newRouterId === 0) {
+        // fetch voucher packages for the selected router
+        let url = `/api/configuration/vouchers/packages?router_id=${newRouterId}`;
+        if (newRouterId === 0) {
+            url = '/api/configuration/vouchers/packages';
+        }
+        axios.get(url)
+            .then((res) => {
+                state.vouchersPackages = res.data.packages;
+            })
+            .catch((err) => {
+                swalNotification('error', err.response.data.message || 'Failed to load voucher packages for the selected router.');
+            });
+    }
+});
+
 </script>
 
 <template>
@@ -211,9 +253,20 @@ const formatBytes = (bytes) => {
         <Head title="Data Plans" />
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h3">Data Plans</h4>
-            <button class="btn btn-primary btn-sm" @click="openModal(false)">
-                <i class="fas fa-plus"></i> Create a Data Plan
-            </button>
+            <div>
+                <section class="d-flex gap-3">
+                    <!-- Router Selection -->
+                    <select v-model="state.selectedRouterId" class="form-select w-auto">
+                        <option :value="0">All Routers</option>
+                        <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                            {{ router.name }}
+                        </option>
+                    </select>
+                    <button class="btn btn-primary" @click="openModal(false)">
+                        <i class="fas fa-plus"></i> Add Data Plan
+                    </button>
+                </section>
+            </div>
         </div>
 
         <!-- Your page content here -->
@@ -278,6 +331,16 @@ const formatBytes = (bytes) => {
                     </div>
                     <form @submit.prevent="submitForm">
                         <div class="modal-body">
+                            <!-- Optional Router Selection -->
+                            <div class="mb-3">
+                                <label for="router_id" class="form-label sr-only">Router</label>
+                                <select id="router_id" v-model="state.form.router_id" class="form-select">
+                                    <option :value="null">Select Router</option>
+                                    <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                        {{ router.name }}
+                                    </option>
+                                </select>
+                            </div>
                             <div class="row">
                                 <div class="col-md-5 mb-3">
                                     <label for="name" class="form-label">Plan Name</label>

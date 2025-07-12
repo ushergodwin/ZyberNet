@@ -22,7 +22,8 @@ class Transaction extends Model
         'mfscode',
         'package_id',
         'response_json',
-        'channel'
+        'channel',
+        'router_id'
     ];
 
     protected $appends = [
@@ -46,5 +47,10 @@ class Transaction extends Model
             return $voucher;
         }
         return null;
+    }
+
+    public function router()
+    {
+        return $this->belongsTo(RouterConfiguration::class, 'router_id');
     }
 }

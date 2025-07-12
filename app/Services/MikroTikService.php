@@ -9,6 +9,9 @@ use App\Models\RouterLog;
 use App\Traits\RouterTrait;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use App\Models\Voucher;
+use App\Models\VoucherPackage;
+use Carbon\Carbon;
 
 /**
  * MikroTikService
@@ -56,6 +59,7 @@ class MikroTikService
                 'message' => 'MikroTik client initialized successfully',
                 'is_manual' => false, // Set to true if this is a manual action
                 'router_name' => $router->name ?? 'Unknown Router', // Store the router name or host
+                'router_id' => $router->id ?? null, // Store the router ID
             ]);
         } catch (\Throwable $th) {
             //throw $th;
@@ -67,6 +71,7 @@ class MikroTikService
                 'message' => $th->getMessage(),
                 'is_manual' => false, // Set to true if this is a manual action
                 'router_name' => $router->name ?? 'Unknown Router', // Store the router name or host
+                'router_id' => $this->router->id ?? null,
             ]);
             throw new \Exception('Failed to initialize MikroTik client: ' . $th->getMessage());
         }
@@ -82,16 +87,12 @@ class MikroTikService
                 ]);
                 return;
             }
-            // Convert session timeout like "3h" to "03:00:00"
-            $limitUpTime = $this->sessionTimeoutToLimitUptime($limitUpTime);
 
             $query = new Query('/ip/hotspot/user/add');
             $query->equal('name', $username)
                 ->equal('password', $password)
                 ->equal('profile', $profile)
                 ->equal('limit-uptime', $limitUpTime)
-                ->equal('uptime-reset', 'no')          // <- critical for session persistence
-                ->equal('disabled', 'false')           // <- just in case
                 ->equal('comment', 'Created via Captive Portal');
 
             // create log entry
@@ -102,6 +103,7 @@ class MikroTikService
                 'message' => "Created user $username with profile $profile",
                 'is_manual' => false,
                 'router_name' => $this->router->name,
+                'router_id' => $this->router->id ?? null,
             ]);
 
             return $this->client->query($query)->read();
@@ -113,6 +115,8 @@ class MikroTikService
                 'success' => false,
                 'message' => $th->getMessage(),
                 'is_manual' => false,
+                'router_name' => $this->router->name ?? 'Unknown Router',
+                'router_id' => $this->router->id ?? null,
             ]);
         }
     }
@@ -168,6 +172,7 @@ class MikroTikService
                 'message' => 'Connection to MikroTik router is successful.',
                 'is_manual' => false, // Set to true if this is a manual action
                 'router_name' => $this->router->name ?? 'Unknown Router', // Store the router name or host
+                'router_id' => $this->router->id ?? null,
             ]);
         } catch (\Throwable $th) {
             // create log entry for error
@@ -178,6 +183,7 @@ class MikroTikService
                 'message' => $th->getMessage(),
                 'is_manual' => false, // Set to true if this is a manual action
                 'router_name' => $this->router->name ?? 'Unknown Router', // Store the router name or host
+                'router_id' => $this->router->id ?? null,
             ]);
             return [
                 'success' => false,
@@ -237,6 +243,7 @@ class MikroTikService
                     'message' => "Updated profile '{$profile->profile_name}' on router",
                     'is_manual' => false,
                     'router_name' => $this->router->name ?? 'Unknown Router',
+                    'router_id' => $this->router->id ?? null,
                 ]);
 
                 $status = 'updated';
@@ -256,6 +263,7 @@ class MikroTikService
                     'message' => "Created profile '{$profile->profile_name}' on router",
                     'is_manual' => false,
                     'router_name' => $this->router->name ?? 'Unknown Router',
+                    'router_id' => $this->router->id ?? null,
                 ]);
 
                 $status = 'created';
@@ -270,6 +278,7 @@ class MikroTikService
                 'message' => $th->getMessage(),
                 'is_manual' => false,
                 'router_name' => $this->router->name ?? 'Unknown Router',
+                'router_id' => $this->router->id ?? null,
             ]);
 
             Log::error('Failed to push profile to router: ' . $th->getMessage(), [
@@ -315,6 +324,7 @@ class MikroTikService
                 'message' => "Deleted user {$username} from router",
                 'is_manual' => false,
                 'router_name' => $this->router->name,
+                'router_id' => $this->router->id ?? null,
             ]);
 
             return true;
@@ -327,10 +337,111 @@ class MikroTikService
                 'message' => $th->getMessage(),
                 'is_manual' => false,
                 'router_name' => $this->router->name ?? 'Unknown Router',
+                'router_id' => $this->router->id ?? null,
             ]);
 
             // Step 5: Rethrow for upstream handling
             throw new \Exception("Failed to delete user {$username}: " . $th->getMessage(), 0, $th);
+        }
+    }
+
+    public function removeExpiredHotspotUsers()
+    {
+        try {
+            if (!$this->client) {
+                Log::error('MikroTik client is not initialized. Cannot remove expired hotspot users.');
+                return;
+            }
+
+            // Step 1: Get all packages with session timeout mapping
+            $packages = VoucherPackage::all()
+                ->keyBy('profile_name')
+                ->map(function ($package) {
+                    return [
+                        'timeout' => $package->js_session_timeout,
+                        'unit'    => $package->session_timeout_unit,
+                    ];
+                });
+
+            // Step 2: Get all hotspot users
+            $query = new Query('/ip/hotspot/user/print');
+            $users = $this->client->query($query)->read();
+
+            $expiredUsernames = [];
+
+            foreach ($users as $user) {
+                $username = $user['name'] ?? null;
+                $profile = $user['profile'] ?? null;
+                $lastLoggedIn = $user['last-logged-in'] ?? null;
+
+                if (!$username || !$profile || !$lastLoggedIn || !isset($packages[$profile])) {
+                    continue;
+                }
+
+                try {
+                    $lastLogin = Carbon::parse($lastLoggedIn);
+                } catch (\Exception $e) {
+                    continue;
+                }
+
+                $timeout = $packages[$profile]['timeout'];
+                $unit = strtolower($packages[$profile]['unit']);
+
+                if (!$timeout || !$unit) continue;
+
+                $expiresAt = match ($unit) {
+                    'hours' => $lastLogin->copy()->addHours($timeout),
+                    'days' => $lastLogin->copy()->addDays($timeout),
+                    'minutes' => $lastLogin->copy()->addMinutes($timeout),
+                    default => null,
+                };
+
+                if (!$expiresAt || now()->lt($expiresAt)) {
+                    continue;
+                }
+
+                // Step 3: Remove from MikroTik
+                $findQuery = (new Query('/ip/hotspot/user/print'))->where('name', $username);
+                $found = $this->client->query($findQuery)->read();
+
+                if (isset($found[0]['.id'])) {
+                    $removeQuery = (new Query('/ip/hotspot/user/remove'))->equal('.id', $found[0]['.id']);
+                    $this->client->query($removeQuery)->read();
+                }
+
+                $expiredUsernames[] = $username;
+
+                Log::info("Expired hotspot user [{$username}] removed from MikroTik (profile: {$profile}).");
+            }
+
+            // Step 4: Batch delete vouchers
+            if (!empty($expiredUsernames)) {
+                Voucher::whereIn('code', $expiredUsernames)->delete();
+                Log::info("Deleted expired vouchers for users: " . implode(', ', $expiredUsernames));
+            }
+            // Step 5: Log success
+            RouterLog::create([
+                'voucher_id' => null,
+                'action' => 'remove_expired_hotspot_users',
+                'success' => true,
+                'message' => "Removed expired hotspot users: " . implode(', ', $expiredUsernames),
+                'is_manual' => false,
+                'router_name' => $this->router->name ?? 'Unknown Router',
+                'router_id' => $this->router->id ?? null,
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Failed to remove expired hotspot users: ' . $th->getMessage(), [
+                'trace' => $th->getTrace(),
+            ]);
+            RouterLog::create([
+                'voucher_id' => null,
+                'action' => 'remove_expired_hotspot_users',
+                'success' => false,
+                'message' => $th->getMessage(),
+                'is_manual' => false,
+                'router_name' => $this->router->name ?? 'Unknown Router',
+                'router_id' => $this->router->id ?? null,
+            ]);
         }
     }
 }

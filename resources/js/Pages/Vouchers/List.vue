@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { Head, router, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { showLoader, hideLoader, swalNotification, swalConfirm } from "@/mixins/helpers.mixin.js";
+import { showLoader, hideLoader, swalNotification, swalConfirm, number_format } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 import emitter from "@/eventBus";
 defineOptions({ layout: AdminLayout });
@@ -19,6 +19,8 @@ onMounted(() => {
     if (cached && cached !== 'undefined') {
         state.generatedVouchers = JSON.parse(cached);
     }
+    // Load routers
+    loadRouters();
 });
 onUnmounted(() => emitter.off('search', handleSearch));
 
@@ -31,7 +33,7 @@ const state = reactive({
     voucherTransaction: null,
     showTransactionModal: false,
     selectedVoucher: null,
-    form: { package_id: null, quantity: 1 },
+    form: { package_id: null, quantity: 1, router_id: 1 },
     showCreateModal: false,
     packages: [],
     generatedVouchers: [],
@@ -41,7 +43,11 @@ const state = reactive({
         currency: 'UGX',
         amount: 0,
         status: 'successful',
-    }
+    },
+    selectedRouterId: 1,
+    routers: [],
+    selectedRouter: null,
+    selectedVouchers: [],
 });
 
 const loadVouchers = (page) => {
@@ -49,6 +55,9 @@ const loadVouchers = (page) => {
     state.loading = true;
     let url = `/api/vouchers?page=${page}`;
     if (state.searchQuery) url += `&search=${encodeURIComponent(state.searchQuery)}`;
+    if (state.selectedRouterId) {
+        url += `&router_id=${state.selectedRouterId}`;
+    }
     axios.get(url).then(response => {
         const data = response.data;
         state.vouchers = data.data;
@@ -70,14 +79,44 @@ const loadVouchers = (page) => {
 };
 
 const loadPackages = () => {
-    axios.get('/api/configuration/vouchers/packages')
+    let url = '/api/configuration/vouchers/packages';
+    if (state.selectedRouterId) {
+        url += `?router_id=${state.selectedRouterId}`;
+    }
+    axios.get(url)
         .then(response => state.packages = response.data.packages)
         .catch(() => swalNotification("error", "Failed to load packages"));
 };
 
+const loadRouters = () => {
+    axios.get('/api/configuration/routers?no_paging=true')
+        .then(response => {
+            state.routers = response.data;
+        })
+        .catch(() => swalNotification("error", "Failed to load routers"));
+};
+
+// watch for changes in selectedRouterId to load vouchers for that router
+watch(() => state.selectedRouterId, (newRouterId) => {
+    if (newRouterId || newRouterId === 0) {
+        state.form.router_id = newRouterId;
+        state.selectedRouterId = newRouterId; // default to router 1 if none selected
+        loadVouchers(1);
+        loadPackages(); // reload packages based on selected router
+        if (newRouterId > 0) {
+            state.selectedRouter = state.routers.find(r => r.id === newRouterId);
+        } else {
+            state.selectedRouter = null; // reset if "All Routers" is selected
+        }
+    }
+});
 const generateVouchers = () => {
     if (!state.form.package_id) {
         swalNotification("error", "Please select a package and try again.");
+        return;
+    }
+    if (!state.form.router_id) {
+        swalNotification("error", "Please select a router and try again.");
         return;
     }
     swalConfirm.fire({
@@ -92,7 +131,8 @@ const generateVouchers = () => {
             showLoader('generating...');
             axios.post('/api/vouchers/generate', {
                 package_id: state.form.package_id,
-                quantity: state.form.quantity
+                quantity: state.form.quantity,
+                router_id: state.form.router_id
             }).then(response => {
                 hideLoader();
                 state.generatedVouchers = response.data.vouchers;
@@ -115,25 +155,73 @@ const generateVouchers = () => {
 };
 
 const printVouchers = (vouchers) => {
-    const printableContent = vouchers.map(v =>
-        `<div class="voucher-print">
-            <strong>${v.code}</strong><br>
-            ${v.formatted_expiry_date || 'No expiry'}
-        </div><hr class="cut-line" />`
-    ).join("");
+    const routerName = state.selectedRouter ? state.selectedRouter.name : "All Routers";
+
+    const rows = [];
+    const columnsPerRow = 4; // Number of vouchers per row
+
+    for (let i = 0; i < vouchers.length; i += columnsPerRow) {
+        const row = vouchers.slice(i, i + columnsPerRow).map(v => `
+            <td class="voucher-cell">
+                <table class="inner-table">
+                    <tr><td colspan="2" class="router-name"><strong>${routerName}</strong></td></tr>
+                    <tr><td><strong>Voucher</strong></td><td>${v.code}</td></tr>
+                    <tr><td><strong>Price</strong></td><td>UGX${parseInt(v.package?.price || 0).toLocaleString()}</td></tr>
+                    <tr><td><strong>Expires In</strong></td><td>${v.expires_in || '—'}</td></tr>
+                </table>
+            </td>
+        `).join('');
+        rows.push(`<tr>${row}</tr>`);
+    }
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
         <html>
             <head>
-                <title>SuperSport Wifi Voucher</title>
+                <title>${routerName} Vouchers</title>
                 <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    .voucher-print { font-size: 20px; text-align: center; margin-bottom: 10px; }
-                    .cut-line { border-top: 1px dashed #999; margin: 20px 0; }
+                    body {
+                        font-family: Arial, sans-serif;
+                        padding: 10px;
+                        font-size: 11px;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: separate;
+                        border-spacing: 8px 6px; /* space between vouchers (cells) */
+                    }
+                    .voucher-cell {
+                        border: 1px solid #333;
+                        padding: 4px;
+                        vertical-align: top;
+                    }
+                    .inner-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                    }
+                    .inner-table td {
+                        padding: 2px 4px;
+                        font-size: 11px;
+                    }
+                    .router-name {
+                        text-align: center;
+                        font-size: 12px;
+                        background-color: #f1f1f1;
+                        font-weight: bold;
+                        padding: 2px 0;
+                        border-bottom: 1px solid #ccc;
+                    }
+                    .inner-table tr:not(:first-child) td:first-child {
+                        width: 55px; /* label width */
+                        font-weight: bold;
+                    }
                 </style>
             </head>
-            <body>${printableContent}</body>
+            <body>
+                <table>
+                    ${rows.join('')}
+                </table>
+            </body>
         </html>
     `);
     printWindow.document.close();
@@ -255,6 +343,36 @@ const deleteVoucher = (voucher) => {
         }
     });
 };
+
+// select voucher 
+const selectVoucher = (voucher) => {
+    if (state.selectedVouchers.includes(voucher)) {
+        state.selectedVouchers = state.selectedVouchers.filter(v => v !== voucher);
+    } else {
+        state.selectedVouchers.push(voucher);
+    }
+};
+
+// printSelectedVouchers
+const printSelectedVouchers = () => {
+    if (state.selectedVouchers.length === 0) {
+        swalNotification("info", "No vouchers selected for printing.");
+        return;
+    }
+    state.selectedRouter = state.routers.find(r => r.id === state.selectedRouterId) || null;
+    printVouchers(state.selectedVouchers);
+    state.selectedVouchers = []; // clear selection after printing
+};
+
+// select all vouchers using state.pagination.per_page
+const selectAllVouchers = () => {
+    if (state.selectedVouchers.length === state.vouchers.length) {
+        state.selectedVouchers = [];
+    } else {
+        const numberOfVouchersToSelect = state.pagination.per_page;
+        state.selectedVouchers = state.vouchers.slice(0, numberOfVouchersToSelect);
+    }
+};
 </script>
 
 
@@ -264,17 +382,27 @@ const deleteVoucher = (voucher) => {
         <Head title="Vouchers" />
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h3">Vouchers</h4>
-            <div class="d-flex gap-2">
-                <button class="btn btn-success" @click="goToPurchase">
-                    <i class="fas fa-dollar"></i> Purchase
-                </button>
-                <button class="btn btn-primary" @click="state.showCreateModal = true">
-                    <i class="fas fa-plus"></i> Create Vouchers
-                </button>
-                <button class="btn btn-secondary" @click="reprintLastBatch">
-                    <i class="fas fa-print"></i> Reprint Last Batch
-                </button>
-            </div>
+            <section>
+                <div class="d-flex gap-3">
+                    <!-- Router Selection-->
+                    <select v-model="state.selectedRouterId" class="form-select w-auto">
+                        <option :value="0">All Routers</option>
+                        <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                            {{ router.name }}
+                        </option>
+                    </select>
+                    <button class="btn btn-success" @click="goToPurchase">
+                        <i class="fas fa-dollar"></i> Purchase
+                    </button>
+                    <button class="btn btn-primary" @click="state.showCreateModal = true">
+                        <i class="fas fa-plus"></i> Create Vouchers
+                    </button>
+                    <button class="btn btn-secondary" v-if="state.selectedVouchers.length"
+                        @click="printSelectedVouchers">
+                        <i class="fas fa-print"></i> Reprint Vouchers
+                    </button>
+                </div>
+            </section>
         </div>
 
         <!-- Your page content here -->
@@ -282,21 +410,31 @@ const deleteVoucher = (voucher) => {
             <table class="table table-striped table-hover" v-if="state.vouchers.length">
                 <thead>
                     <tr>
-                        <th>Code</th>
+
+                        <th>
+                            Code
+                        </th>
+                        <th>Amount (UGX)</th>
                         <th>Package</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <td>Expiry</td>
-                        <th>Actions</th>
+                        <td>Expires In </td>
+                        <th class="d-flex gap-2">
+                            Actions
+                            <!-- Checkbox to select voucher-->
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="customCheckBoxAll"
+                                    :id="`customCheckBoxAll`" @change="selectAllVouchers"
+                                    :checked="state.selectedVouchers.length === state.vouchers.length">
+                                <label class="form-check-label" :for="`customCheckBoxAll`"></label>
+                            </div>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="voucher in state.vouchers" :key="voucher.id">
                         <td>{{ voucher.code }}</td>
                         <td>{{ voucher.package.name }}</td>
-                        <td>{{ voucher.package.formatted_price }}</td>
-                        <td>{{ voucher.is_active ? `Active` : `Expired` }}</td>
-                        <td>{{ voucher.expires_at ? voucher.formatted_expiry_date : `N/A` }}</td>
+                        <td>{{ number_format(voucher.package.price) }}</td>
+                        <td>{{ voucher.is_expired ? `Expired` : voucher.expires_in || `-` }}</td>
                         <td>
                             <div class="d-flex gap-3">
                                 <a href="#" class="text-primary" @click="getVoucherTransaction(voucher)">
@@ -308,6 +446,13 @@ const deleteVoucher = (voucher) => {
                                 <a href="#" class="text-danger" @click="deleteVoucher(voucher)">
                                     <i class="fas fa-trash-alt text-danger"></i>
                                 </a>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" name="customCheck"
+                                        :id="`customCheck-${voucher.id}`" :value="voucher"
+                                        @change="selectVoucher(voucher)"
+                                        :checked="state.selectedVouchers.includes(voucher)">
+                                    <label class="form-check-label" :for="`customCheck-${voucher.id}`"></label>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -451,13 +596,22 @@ const deleteVoucher = (voucher) => {
                             <button type="button" class="btn-close" @click="state.showCreateModal = false"></button>
                         </div>
                         <div class="modal-body">
+                            <!-- Router -->
+                            <div class="mb-3">
+                                <label for="router_id" class="form-label">Select Router</label>
+                                <select v-model="state.selectedRouterId" class="form-select input-rounded">
+                                    <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                        {{ router.name }}
+                                    </option>
+                                </select>
+                            </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="package_id" class="form-label">Select Data Plan</label>
                                     <select v-model="state.form.package_id" class="form-select input-rounded">
                                         <option value="" disabled> -- select a plan --</option>
                                         <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">{{ pkg.name
-                                            }} - {{ pkg.formatted_price }}</option>
+                                        }} - {{ pkg.formatted_price }}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">

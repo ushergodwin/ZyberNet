@@ -2,9 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Models\RouterConfiguration;
 use Illuminate\Console\Command;
-use App\Models\Voucher;
 use App\Services\MikroTikService;
+use Illuminate\Support\Facades\Log;
 
 class CleanupExpiredVouchers extends Command
 {
@@ -13,18 +14,22 @@ class CleanupExpiredVouchers extends Command
 
     public function handle()
     {
-        $expiredVouchers = Voucher::where('expires_at', '<', now())
-            ->get();
-
-        foreach ($expiredVouchers as $voucher) {
-            try {
-                $mikrotik = new MikroTikService($voucher->router);
-                $mikrotik->deleteHotspotUser($voucher->code);
-                $voucher->delete();
-                $this->info("Removed voucher: {$voucher->code}");
-            } catch (\Throwable $e) {
-                $this->error("Failed to remove voucher: {$voucher->code} - {$e->getMessage()}");
+        try {
+            $router = RouterConfiguration::all();
+            if ($router->isEmpty()) {
+                Log::info('No router configurations found for cleanup.');
+                return;
             }
+
+            foreach ($router as $routerConfig) {
+                $mikrotik = new MikroTikService($routerConfig);
+                $mikrotik->removeExpiredHotspotUsers();
+            }
+        } catch (\Throwable $th) {
+            //throw $th;
+            Log::error('Failed to cleanup expired vouchers: ' . $th->getMessage(), [
+                'trace' => $th->getTraceAsString(),
+            ]);
         }
     }
 }

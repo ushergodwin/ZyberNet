@@ -19,30 +19,56 @@ class VoucherController extends Controller
     public function getVouchers(Request $request)
     {
         $searchTerm = $request->input('search');
-        $vouchers = Voucher::when($searchTerm === 'active', function ($query) {
-            $query->where('expires_at', '>', now());
-        })
-            // when search term == 'expired', filter by expires_at < now
-            ->when($searchTerm === 'expired', function ($query) {
-                $query->where('expires_at', '<', now());
-            })
-            // search term == used filter is_used === 1
-            ->when($searchTerm === 'used', function ($query) {
-                $query->where('is_used', 1);
-            })
-            // search term == unused filter is_used === 0
-            ->when($searchTerm === 'unused', function ($query) {
-                $query->where('is_used', 0);
-            })
-            ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused']), function ($query) use ($searchTerm) {
-                $query->where('code', 'like', '%' . $searchTerm . '%')
-                    ->orWhereHas('package', function ($q) use ($searchTerm) {
-                        $q->where('name', 'like', '%' . $searchTerm . '%');
+        $routerId = $request->input('router_id');
+
+        $vouchers = Voucher::when($routerId, function ($query) use ($routerId, $searchTerm) {
+            $query->where('router_id', $routerId)
+                ->when($searchTerm === 'active', function ($query) {
+                    $query->where('expires_at', '>', now());
+                })
+                ->when($searchTerm === 'expired', function ($query) {
+                    $query->where('expires_at', '<', now());
+                })
+                ->when($searchTerm === 'used', function ($query) {
+                    $query->where('is_used', 1);
+                })
+                ->when($searchTerm === 'unused', function ($query) {
+                    $query->where('is_used', 0);
+                })
+                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused']), function ($query) use ($searchTerm) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('code', 'like', '%' . $searchTerm . '%')
+                            ->orWhereHas('package', function ($q2) use ($searchTerm) {
+                                $q2->where('name', 'like', '%' . $searchTerm . '%');
+                            });
                     });
+                });
+        }, function ($query) use ($searchTerm) {
+            $query->when($searchTerm === 'active', function ($query) {
+                $query->where('expires_at', '>', now());
             })
+                ->when($searchTerm === 'expired', function ($query) {
+                    $query->where('expires_at', '<', now());
+                })
+                ->when($searchTerm === 'used', function ($query) {
+                    $query->where('is_used', 1);
+                })
+                ->when($searchTerm === 'unused', function ($query) {
+                    $query->where('is_used', 0);
+                })
+                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused']), function ($query) use ($searchTerm) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('code', 'like', '%' . $searchTerm . '%')
+                            ->orWhereHas('package', function ($q2) use ($searchTerm) {
+                                $q2->where('name', 'like', '%' . $searchTerm . '%');
+                            });
+                    });
+                });
+        })
             ->with('package')
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->paginate(50);
+
 
         return response()->json($vouchers);
     }
@@ -82,7 +108,7 @@ class VoucherController extends Controller
             'quantity'   => 'required|integer|min:1',
         ]);
 
-        $package = VoucherPackage::findOrFail($request->input('package_id'));
+        $package = VoucherPackage::with('router')->findOrFail($request->input('package_id'));
         $quantity = $request->input('quantity');
 
         $voucherDataList = [];
@@ -93,7 +119,7 @@ class VoucherController extends Controller
             $unit = substr($session_timeout, -1);
 
             $expiresAt = now()->add($unit === 'd' ? "{$duration} days" : "{$duration} hours");
-            $code = "SSW" . strtoupper(Str::random(6));
+            $code = strtoupper(Str::random(6));
             $voucherDataList[] = [
                 'code'            => $code,
                 'package_id'      => $package->id,
@@ -105,10 +131,10 @@ class VoucherController extends Controller
 
         try {
             $voucherService = new VoucherService();
-            $vouchers = $voucherService->createVouchersAndPushToRouter($voucherDataList);
+            $vouchers = $voucherService->createVouchersAndPushToRouter($voucherDataList, $package->router);
 
             return response()->json([
-                'message' => 'Vouchers created and pushed to MikroTik successfully',
+                'message' => 'Vouchers created and pushed to Router successfully',
                 'vouchers' => $vouchers,
             ]);
         } catch (\Throwable $e) {
@@ -130,7 +156,7 @@ class VoucherController extends Controller
             'status' => 'required|string|in:pending,successful,failed',
         ]);
 
-        $voucher = Voucher::with('package')->findOrFail($id);
+        $voucher = Voucher::with('package')->with('router')->findOrFail($id);
         // generate a unique payment ID, only digits, 8 characters long prefix ME
         $paymentId = '90' . random_int(10000000, 99999999);
         $transactionData = [
@@ -142,6 +168,7 @@ class VoucherController extends Controller
             'mfscode' => uniqid('ME'),
             'package_id' => $voucher->package->id,
             'channel' => 'cash',
+            'router_id' => $voucher->router->id,
         ];
 
         $transaction = $voucher->transaction()->create($transactionData);
@@ -154,50 +181,16 @@ class VoucherController extends Controller
         ]);
     }
 
-    public function syncVouchersFromLocalHost(Request $request,)
-    {
-        try {
-            // if request origin is not == to config('app.local_domain'), return 403
-            if ($request->getHost() !== config('app.local_domain')) {
-                return response()->json(['message' => 'Unauthorized'], 403);
-            }
-
-            $vouchers = $request->input('vouchers', []);
-            if (empty($vouchers)) {
-                return response()->json(['message' => 'No vouchers to sync'], 400);
-            }
-
-            foreach ($vouchers as $voucherData) {
-                DB::table('vouchers')->updateOrInsert(
-                    ['code' => $voucherData['code']],
-                    [
-                        'package_id' => $voucherData['package_id'],
-                        'expires_at' => $voucherData['expires_at'],
-                        'is_used' => $voucherData['is_used'] ?? 0,
-                        'transaction_id' => $voucherData['transaction_id'] ?? null,
-                    ]
-                );
-            }
-        } catch (\Throwable $th) {
-            //throw $th;
-            Log::error('Voucher sync error: ' . $th->getMessage(), [
-                'vouchers' => $vouchers,
-                'error' => $th->getMessage(),
-            ]);
-            return response()->json(['message' => 'An error occurred while syncing vouchers', 'error' => $th->getMessage()], 500);
-        }
-    }
-
     // deleteVoucher
     public function destroy($code)
     {
         try {
-            $voucher = Voucher::where('code', $code)->first();
+            $voucher = Voucher::with('router')->where('code', $code)->first();
             if (!$voucher) {
                 return response()->json(['message' => 'Voucher not found'], 202);
             }
             $voucherService = new VoucherService();
-            $voucherService->deleteVoucher($code);
+            $voucherService->deleteVoucher($code, $voucher->router);
             return response()->json(['message' => 'Voucher deleted from router and database successfully']);
         } catch (\Throwable $e) {
             Log::error('Failed to delete voucher: ' . $e->getMessage(), [

@@ -1,7 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Head, usePage } from '@inertiajs/vue3';
-import { onMounted, reactive } from 'vue';
+import { onMounted, reactive, watch } from 'vue';
 defineOptions({ layout: AdminLayout });
 
 const state = reactive({
@@ -22,20 +22,45 @@ const state = reactive({
         failed_transactions: 0,
         total_revenue: 0
     },
-    isLoading: false
+    isLoading: false,
+    routers: [],
+    selectedRouter: null,
+    selectedRouterId: 1
 });
 
 // get dashboard stats
 const getDashboardStats = async () => {
     try {
+        let url = '/api/reports/stats';
+        if (state.selectedRouterId) {
+            url += `?router_id=${state.selectedRouterId}`;
+        }
         state.isLoading = true;
-        const response = await axios.get('/api/reports/stats');
+        const response = await axios.get(url);
         Object.assign(state.stats, response.data);
         state.isLoading = false;
     } catch (error) {
         console.error('Failed to fetch dashboard stats:', error);
     }
 };
+
+// load routers
+const loadRouters = async () => {
+    try {
+        const response = await axios.get('/api/configuration/routers?no_paging=true');
+        state.routers = response.data;
+    } catch (error) {
+        console.error('Failed to load routers:', error);
+    }
+};
+
+// watch for selectedRouterId changes
+watch(() => state.selectedRouterId, (newId) => {
+    state.selectedRouter = state.routers.find(router => router.id === newId);
+    if (newId || newId === 0) {
+        getDashboardStats();
+    }
+});
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
 
@@ -43,6 +68,7 @@ onMounted(() => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     getDashboardStats();
+    loadRouters();
 });
 
 const capitalize = (str) => {
@@ -59,6 +85,13 @@ const capitalize = (str) => {
         <Head title="Dashboard" />
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="h3">Dashboard</h1>
+            <!-- Router Selector -->
+            <select v-model="state.selectedRouterId" class="form-select w-auto">
+                <option :value="0">All Routers</option>
+                <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                    {{ router.name }}
+                </option>
+            </select>
         </div>
         <div class="row">
             <div class="col-md-3 mb-3" v-for="key in Object.keys(state.stats)" :key="key">

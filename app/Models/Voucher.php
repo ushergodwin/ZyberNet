@@ -17,7 +17,8 @@ class Voucher extends Model
         'transaction_id',
         'package_id',
         'expires_at',
-        'is_used'
+        'is_used',
+        'router_id',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class Voucher extends Model
     protected $appends = [
         'is_active',
         'formatted_expiry_date',
+        'expires_in',
     ];
 
     public function transaction()
@@ -83,5 +85,25 @@ class Voucher extends Model
         }
 
         return $this->expires_at->format('Y-m-d') . ' at ' . $this->expires_at->format('H:i');
+    }
+
+    public function router()
+    {
+        return $this->belongsTo(RouterConfiguration::class, 'router_id');
+    }
+
+    // get the time remaining before expiry
+    public function getExpiresInAttribute()
+    {
+        $profile_name = $this->package->session_timeout;
+        // get the last letter of the profile name
+        $lastLetter = substr($profile_name, -1);
+
+        // get the profile name without the last letter
+        $profileNameWithoutLastLetter = substr($profile_name, 0, -1);
+
+        // formulate expiry word i.e if $lastLetter is 'd' then 'days', if 'h' then 'hours'
+        $expiryWord = $lastLetter === 'd' ? 'days' :  'hours';
+        return $profileNameWithoutLastLetter . ' ' . ucfirst($expiryWord);
     }
 }

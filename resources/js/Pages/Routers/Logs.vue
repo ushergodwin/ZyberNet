@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { Head, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate } from "@/mixins/helpers.mixin.js";
@@ -20,6 +20,9 @@ const state = reactive({
         to: 0,
     },
     searchQuery: '',
+    routers: [],
+    selectedRouter: null,
+    selectedRouterId: 1,
 });
 
 const loadRouterLogs = (page) => {
@@ -29,6 +32,10 @@ const loadRouterLogs = (page) => {
     if (state.searchQuery) {
         url += `&search=${encodeURIComponent(state.searchQuery)}`;
     }
+    if (state.selectedRouterId) {
+        url += `&router_id=${state.selectedRouterId}`;
+    }
+
     axios.get(url)
         .then(response => {
             const data = response.data;
@@ -61,6 +68,24 @@ const handlePageChange = (page) => {
     if (page < 1 || page > state.pagination.last_page) return;
     loadRouterLogs(page);
 };
+
+// load routers
+const loadRouters = async () => {
+    try {
+        const response = await axios.get('/api/configuration/routers?no_paging=true');
+        state.routers = response.data;
+    } catch (error) {
+        console.error('Failed to load routers:', error);
+    }
+};
+
+// watch for selectedRouterId changes
+watch(() => state.selectedRouterId, (newId) => {
+    state.selectedRouter = state.routers.find(router => router.id === newId);
+    if (newId || newId === 0) {
+        loadRouterLogs(1);
+    }
+});
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
 
@@ -68,6 +93,7 @@ onMounted(() => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     loadRouterLogs(1);
+    loadRouters();
     emitter.on('search', handleSearch);
 });
 onUnmounted(() => {
@@ -81,6 +107,13 @@ onUnmounted(() => {
         <Head title="Router Logs" />
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h3">Router Logs</h4>
+            <!-- Router selection -->
+            <select class="form-select w-auto" v-model="state.selectedRouterId">
+                <option :value="0">All Routers</option>
+                <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                    {{ router.name }}
+                </option>
+            </select>
         </div>
         <!-- Your page content here -->
         <div class="card card-body shadow">

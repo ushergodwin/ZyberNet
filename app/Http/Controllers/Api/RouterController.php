@@ -66,8 +66,10 @@ class RouterController extends Controller
             $query->where('message', 'like', '%' . $request->search . '%')
                 //action
                 ->orWhere('action', 'like', '%' . $request->search . '%');
+        })->when($request->has('router_id'), function ($query) use ($request) {
+            $query->where('router_id', $request->router_id);
         })
-            ->paginate(10);
+            ->paginate(50);
 
         return response()->json($logs);
     }

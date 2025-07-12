@@ -10,11 +10,9 @@ use App\Services\MikroTikService;
 
 class VoucherService
 {
-    public function createVouchersAndPushToRouter(array $voucherDataList)
+    public function createVouchersAndPushToRouter(array $voucherDataList, RouterConfiguration $router)
     {
         $createdVouchers = [];
-        $router = RouterConfiguration::first();
-
         DB::beginTransaction();
 
         try {
@@ -34,6 +32,7 @@ class VoucherService
                     'code' => $voucherData['code'],
                     'package_id' => $voucherData['package_id'],
                     'expires_at' => $voucherData['expires_at'],
+                    'router_id' => $router->id,
                 ]);
             }
 
@@ -47,11 +46,9 @@ class VoucherService
     }
 
     // delete voucher from router and database
-    public function deleteVoucher($voucherCode)
+    public function deleteVoucher($voucherCode, RouterConfiguration $router)
     {
         $voucher = Voucher::where('code', $voucherCode)->firstOrFail();
-        $router = RouterConfiguration::first();
-
         DB::beginTransaction();
 
         try {

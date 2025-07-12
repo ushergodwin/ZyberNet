@@ -16,6 +16,14 @@ const props = defineProps({
     packages: {
         type: Array,
         default: () => []
+    },
+    link_login: {
+        type: String,
+        default: ""
+    },
+    wifi_name: {
+        type: String,
+        default: "SuperSpot Wifi"
     }
 });
 const phoneNumber = ref('');
@@ -112,40 +120,30 @@ function checkTransactionStatus() {
             checkingStatus.value = false;
             swalNotification('error', 'Error checking transaction status',);
         }
-    }, 5000);
+    }, // every minute
+        60000
+    );
 }
 
 // copy voucher code to clipboard
 const copyVoucherCode = () => {
     if (voucher.value) {
         navigator.clipboard.writeText(voucher.value.code)
-            .then(() => notify.toastSuccessMessage('Voucher code copied to clipboard'))
+            .then(() => notify.toastSuccessMessage('Voucher copied to clipboard'))
             .catch(() => notify.toastErrorMessage('error', 'Failed to copy voucher code'));
     }
 };
 
-// print voucher code
-const printVoucherCode = () => {
-    if (voucher.value) {
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>SuperSpot Wifi</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; }
-                        .voucher-code { font-size: 24px; font-weight: bold; }
-                    </style>
-                </head>
-                <body>
-                    <h1>Voucher Code</h1>
-                    <div class="voucher-code">${voucher.value.code}</div>
-                    <p>Expires at: ${new Date(voucher.value.expires_at).toLocaleString()}</p>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
+// connect to WiFi
+const connectToWiFi = () => {
+    if (voucher.value?.code && props.link_login) {
+        // submit the voucher code to the router login form
+        const form = document.getElementById('connect-to-wifi-form');
+        form.username.value = voucher.value.code;
+        form.password.value = voucher.value.code;
+        form.submit();
+    } else {
+        notify.toastErrorMessage('error', `Connect to ${props.wifi_name} and use your voucher to access the internet.`);
     }
 };
 onMounted(() => {
@@ -166,7 +164,7 @@ onMounted(() => {
         <div class="text-center mb-4">
             <img src="@/assets/images/superspotwifi-logo.png" alt="SuperSpot Wifi Logo"
                 class="img-fluid mb-3 rounded-circle logo" />
-            <h2 class="fw-bold">SuperSpot Wifi</h2>
+            <h2 class="fw-bold">{{ props.wifi_name }}</h2>
             <p class="small text-light">Buy your internet voucher easily and securely.</p>
         </div>
 
@@ -193,7 +191,7 @@ onMounted(() => {
             <div class="d-grid">
                 <button class="btn btn-gradient text-white fw-bold" @click="purchaseVoucher"
                     :disabled="processingPayment">
-                    <i class="fas fa-wallet me-2"></i> Send Payment Prompt
+                    <i class="fas fa-wallet me-2"></i> Pay Now
                 </button>
             </div>
 
@@ -205,7 +203,7 @@ onMounted(() => {
 
             <!-- Voucher Code Result -->
             <div v-if="voucher" class="alert alert-success mt-4">
-                <h5>Your Voucher Code</h5>
+                <h5>Your Voucher</h5>
                 <div class="mt-1">
                     <div class="d-flex justify-content-between align-items-center">
                         <strong class="text-uppercase">{{ voucher.code }}</strong>
@@ -215,12 +213,18 @@ onMounted(() => {
                 <!-- print voucher code -->
                 <div class="d-flex justify-content-end mt-3 gap-3">
                     <button class="btn btn-outline-light btn-sm" @click="copyVoucherCode">
-                        <i class="fas fa-copy"></i> Copy Code
+                        <i class="fas fa-copy"></i> Copy Voucher
                     </button>
-                    <!-- print code -->
-                    <button class="btn btn-outline-light btn-sm ms-2" @click="printVoucherCode">
-                        <i class="fas fa-print"></i> Print Voucher
+                    <!-- connect to WiFi -->
+                    <button class="btn btn-outline-light btn-sm ms-2" @click="connectToWiFi">
+                        <i class="fas fa-print"></i> Connect to WiFi
                     </button>
+                    <form method="POST" :action="props.link_login" id="connect-to-wifi-form">
+                        <input type="hidden" name="_token" :value="props.csrfToken">
+                        <input type="hidden" name="username" :value="voucher?.code">
+                        <input type="hidden" name="password" :value="voucher?.code">
+                        <input type="hidden" name="dst" value="https://www.google.com" />
+                    </form>
                 </div>
             </div>
         </div>
