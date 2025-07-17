@@ -6,12 +6,14 @@ use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VoucherController;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', [HotspotController::class, 'index'])->name('hotspot.index');
-Route::post('/wifi-login', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login');
+Route::post('/wifi-login', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login')
+    ->withoutMiddleware(VerifyCsrfToken::class);
 Route::post('/hotspot-login', [HotspotController::class, 'authenticate']);
 Route::post('/hotspot-link-login', [HotspotController::class, 'login'])->name('hotspot.authenticate');
 Route::get('/hotspot-login-successful', [HotspotController::class, 'success'])->name('hotspot.success');
