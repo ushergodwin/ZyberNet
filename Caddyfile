@@ -1,0 +1,5 @@
+superspotwifi.net {
+    root * /var/www/public
+    php_fastcgi superspotwifi-app:9000
+    file_server
+}

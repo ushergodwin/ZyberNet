@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+    superspotwifi-app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: superspotwifi-app
+        container_name: superspotwifi-app
+        restart: unless-stopped
+        working_dir: /var/www
+        volumes:
+            - ./:/var/www
+        ports:
+            - "9000:9000"
+        networks:
+            - superspotwifi-net
+
+    superspotwifi-caddy:
+        image: caddy:latest
+        container_name: superspotwifi-caddy
+        restart: unless-stopped
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./:/var/www
+            - ./Caddyfile:/etc/caddy/Caddyfile
+            - caddy_data:/data
+            - caddy_config:/config
+        depends_on:
+            - superspotwifi-app
+        networks:
+            - superspotwifi-net
+
+    superspotwifi-db:
+        image: mysql:5.7
+        container_name: superspotwifi-db
+        restart: unless-stopped
+        environment:
+            MYSQL_DATABASE: superspotwifi
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_USER: superspot
+            MYSQL_PASSWORD: ss@WiFi@#2025
+        ports:
+            - "3306:3306"
+        volumes:
+            - dbdata:/var/lib/mysql
+        networks:
+            - superspotwifi-net
+
+volumes:
+    dbdata:
+    caddy_data:
+    caddy_config:
+networks:
+    superspotwifi-net:
