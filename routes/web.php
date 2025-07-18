@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', [HotspotController::class, 'index'])->name('hotspot.index');
-Route::post('/wifi-login', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login')
+Route::post('/', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login')
     ->withoutMiddleware(VerifyCsrfToken::class);
 Route::post('/hotspot-login', [HotspotController::class, 'authenticate']);
 Route::post('/hotspot-link-login', [HotspotController::class, 'login'])->name('hotspot.authenticate');
