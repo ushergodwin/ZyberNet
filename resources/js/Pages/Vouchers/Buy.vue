@@ -121,8 +121,8 @@ function checkTransactionStatus() {
             checkingStatus.value = false;
             swalNotification('error', 'Error checking transaction status',);
         }
-    }, // every minute
-        60000
+    }, // every 30 seconds
+        30000
     );
 }
 
