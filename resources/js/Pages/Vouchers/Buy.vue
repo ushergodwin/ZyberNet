@@ -84,6 +84,7 @@ async function purchaseVoucher() {
                 checkTransactionStatus(); // Start checking status
             });
     } catch (error) {
+        console.error('Payment error:', error);
         swalNotification('error', error.response?.data?.message || 'Payment failed');
     }
 }
