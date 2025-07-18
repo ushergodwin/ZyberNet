@@ -68,13 +68,13 @@ async function purchaseVoucher() {
             return;
         }
         // format phone number
-        const formattedPhoneNumber = formatPhoneNumber(phoneNumber.value);
+        const data = {
+            phone_number: formatPhoneNumber(phoneNumber.value),
+            package_id: packageId.value
+        }
         processingPayment.value = true;
         showLoader();
-        const response = await axios.post('/api/payments/voucher', {
-            phone_number: formattedPhoneNumber,
-            package_id: packageId
-        });
+        const response = await axios.post('/api/payments/voucher', data);
         hideLoader();
         swalNotification('success', response.data.message)
             .then(() => {
