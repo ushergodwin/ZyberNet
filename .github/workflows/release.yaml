@@ -1,8 +1,8 @@
 name: 🚀 SuperSpot Wifi Release Pipeline
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   workflow_dispatch:
 
 env:
