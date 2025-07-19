@@ -8,6 +8,7 @@ use App\Http\Controllers\VoucherController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Http\Request;
 
 Route::get('/', [HotspotController::class, 'index'])->name('hotspot.index');
 Route::get('/connect', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login');
@@ -48,3 +49,29 @@ Route::middleware([
     // payments
     Route::get('/payments', [PaymentsController::class, 'index'])->name('payments.index');
 });
+
+
+Route::post('/login', function (Request $request) {
+    $credentials = $request->validate([
+        'email' => ['required', 'email'],
+        'password' => ['required'],
+    ]);
+
+    if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        $request->session()->regenerate();
+        return redirect()->intended('/dashboard');
+    }
+
+    return back()->withErrors([
+        'email' => 'The provided credentials do not match our records.',
+    ]);
+})->name('login');
+
+Route::post('/logout', function (Request $request) {
+    Auth::logout();
+
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect('/login');
+})->name('logout');

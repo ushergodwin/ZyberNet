@@ -273,14 +273,17 @@
         <hr>
         <div class="powered">
             Enter your voucher code to connect to {{ config('app.name')}} or buy a new voucher online and pay via mobile money.
-            <br/><br/>Call <a href="tel:+256757058906" class="phone">+256 757 058906</a> for support
+            <br/><br/>WhatsApp <a href="javascript:void(0)" class="phone" onclick="openWhatsAppLink('https://wa.link/w3dfmd')">
+            +256 757 058906
+        </a> or <a href="javascript:void(0)" class="phone"  onclick="openWhatsAppLink('https://wa.link/g5y14v')">
+            +256 757 972962 
+        </a> for support
             <hr/>
-            Powered by <a href="javascript:void(0)" class="phone" onclick="openWhatsAppLink()" > Eng. Godwin </a>
+            Powered by <a href="javascript:void(0)" class="phone" onclick="openWhatsAppLink('https://wa.link/ogbnmg')" > Eng. Godwin </a>
         </div>
     </div>
     <script>
-        function openWhatsAppLink(){
-            const whatsappUrl = "https://wa.link/ogbnmg";
+        function openWhatsAppLink(whatsappUrl){
             const userAgent = navigator.userAgent || navigator.vendor || window.opera;
             if (/android/i.test(userAgent)) {
                 window.location.href = whatsappUrl;

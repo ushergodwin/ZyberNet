@@ -104,8 +104,8 @@ function checkTransactionStatus() {
                     .then(() => {
                         checkingStatus.value = false;
                         processingPayment.value = false;
-                        // submit the voucher code to the router login form
-                        document.getElementById('routerLoginForm').submit();
+                        // automatically connect to WiFi
+                        connectToWiFi();
                     });
 
             }
@@ -119,10 +119,11 @@ function checkTransactionStatus() {
         } catch (err) {
             clearInterval(interval);
             checkingStatus.value = false;
-            swalNotification('error', 'Error checking transaction status',);
+            const errorMessage = err.response?.data?.message || 'Error checking transaction status';
+            swalNotification('error', errorMessage);
         }
-    }, // every 30 seconds
-        30000
+    }, // very minute
+        60000 // 60 seconds
     );
 }
 
@@ -199,7 +200,10 @@ onMounted(() => {
             <!-- Payment Spinner -->
             <div v-if="checkingStatus" class="text-center mt-4">
                 <div class="spinner-border text-light" role="status"></div>
-                <p class="mt-2 small text-white-50">Waiting for payment confirmation...</p>
+                <p class="mt-2 small text-white-50">
+                    Waiting for payment confirmation. This make take some time. Please
+                    be patient and do not close or refresh this page.
+                </p>
             </div>
 
             <!-- Voucher Code Result -->
@@ -213,11 +217,11 @@ onMounted(() => {
                 </div>
                 <!-- print voucher code -->
                 <div class="d-flex justify-content-end mt-3 gap-3">
-                    <button class="btn btn-outline-light btn-sm" @click="copyVoucherCode">
+                    <button class="btn btn-outline-primary btn-sm" @click="copyVoucherCode">
                         <i class="fas fa-copy"></i> Copy Voucher
                     </button>
                     <!-- connect to WiFi -->
-                    <button class="btn btn-outline-light btn-sm ms-2" @click="connectToWiFi">
+                    <button class="btn btn-outline-primary btn-sm ms-2" @click="connectToWiFi">
                         <i class="fas fa-print"></i> Connect to WiFi
                     </button>
                     <form method="POST" :action="props.link_login" id="connect-to-wifi-form">

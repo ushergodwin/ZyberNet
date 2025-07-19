@@ -23,7 +23,7 @@ class CleanupExpiredVouchers extends Command
 
             foreach ($router as $routerConfig) {
                 $mikrotik = new MikroTikService($routerConfig);
-                $mikrotik->removeExpiredHotspotUsers();
+                $mikrotik->removeExpiredHotspotUsersByUptime();
             }
         } catch (\Throwable $th) {
             //throw $th;

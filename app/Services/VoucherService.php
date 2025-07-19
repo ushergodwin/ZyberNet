@@ -33,6 +33,7 @@ class VoucherService
                     'package_id' => $voucherData['package_id'],
                     'expires_at' => $voucherData['expires_at'],
                     'router_id' => $router->id,
+                    'transaction_id' => $voucherData['transaction_id'] ?? null,
                 ]);
             }
 

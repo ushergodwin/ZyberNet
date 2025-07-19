@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Http;
 use App\Models\VoucherPackage;
 use App\Models\Transaction;
 use App\Models\Voucher;
+use App\Services\PaymentService;
+use App\Services\SmsService;
 use App\Services\VoucherService;
+use Faker\Provider\ar_EG\Payment;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -43,35 +46,7 @@ class PaymentController extends Controller
             ];
 
             // Make payment request
-            $response = Http::withToken(env('CINEMAUG_API_TOKEN'))
-                ->post('https://cinemaug.com/payments/collect.php', $payload);
-
-            if (!$response->successful()) {
-                return response()->json(['message' => 'Payment request failed. Please make sure you provided a correct phone number'], 202);
-            }
-
-            $paymentData = $response->json();
-            // Store transaction
-            $transaction = Transaction::create([
-                'phone_number'  => $paymentData['contact']['phone_number'],
-                'amount'        => $paymentData['amount'],
-                'currency'      => $paymentData['currency'],
-                'status'        => $paymentData['status'],
-                'payment_id'    => $paymentData['id'],
-                'mfscode'       => $paymentData['mfscode'],
-                'package_id'    => $package->id,
-                'response_json' => json_encode($paymentData),
-                'channel'       => 'mobile_money',
-                'router_id'     => $package->router_id,
-            ]);
-
-            if ($voucher_code) {
-                $voucher = Voucher::where('code', $voucher_code)->first();
-                if ($voucher) {
-                    $voucher->transaction_id = $transaction->id;
-                    $voucher->save();
-                }
-            }
+            $paymentData = PaymentService::processPayment($payload, $package, $voucher_code);
             return response()->json([
                 'message'     => 'A payment prompt has been sent to your phone. Please complete the payment by entering your pin.',
                 'paymentData' => $paymentData,
@@ -93,58 +68,42 @@ class PaymentController extends Controller
     public function checkTransactionStatus($id)
     {
         try {
-            $voucher_code = request()->input('voucher_code');
-            // Make payment request
-            $response = Http::withToken(env('CINEMAUG_API_TOKEN'))
-                ->get('https://cinemaug.com/payments/collect.php?id=' . $id);
 
-            if (!$response->successful()) {
-                return response()->json(['message' => 'Payment request failed'], 202);
-            }
-            $paymentData = $response->json();
+            $voucher_code = request()->input('voucher_code', '');
+            $generate_voucher = request()->input('generate_voucher', true);
             // Check if transaction exists
             $transaction = Transaction::where('payment_id', $id)->with('package')->first();
             if (!$transaction) {
                 return response()->json(['message' => 'Transaction not found'], 202);
             }
-            // Update transaction status
-            $transaction->status = $paymentData['status'];
-            $transaction->response_json = json_encode($paymentData);
-            $transaction->save();
 
-            $voucher = null;
-            if ($voucher_code) {
-                $voucher = Voucher::where('code', $voucher_code)->first();
-                if ($voucher) {
-                    $voucher->transaction_id = $transaction->id;
-                    $voucher->save();
-                    $transaction->voucher = $voucher;
-                }
+            // check status 
+            $voucher = PaymentService::checkPaymentStatus($id, $transaction, $generate_voucher, $voucher_code);
+            $message = 'Transaction status has been checked and it is ';
+            if ($transaction->status === 'successful') {
+                $message .= 'successful. You can now use your voucher.';
+            } elseif ($transaction->status === 'new') {
+                $message .= 'the transaction is still pending.';
+            } else if ($transaction->status === 'instructions_sent') {
+                $message .= 'instructions have been sent to your phone.';
+            } else {
+                $message .= 'failed. Please try again or contact support.';
             }
-            if ($transaction->status === 'successful' && !$transaction->voucher) {
-                $session_timeout = substr($transaction->package->session_timeout, 0, -1); // Remove the last character (h or d)
-                $session_timeout_unit = substr($transaction->package->session_timeout, -1); // Get the last character (h or d)
-                // Calculate expiration date based on session timeout
-                $expiresAt = now()->add($session_timeout_unit === 'd' ? $session_timeout . ' days' : $session_timeout . ' hours');
 
-                $code = strtoupper(Str::random(6));
-                $voucher = [
-                    'code'           => $code,
-                    'transaction_id' => $transaction->id,
-                    'package_id'     => $transaction->package_id,
-                    'expires_at'     => $expiresAt,
-                    'session_timeout' => $transaction->package->session_timeout,
-                    'profile_name'   => $transaction->package->profile_name,
-                ];
-                // Create voucher
-                $voucherService = new VoucherService();
-                $router = $transaction->package->router;
-                $voucher = $voucherService->createVouchersAndPushToRouter([$voucher], $router)[0];
+            $sms_sent = false;
+            if ($voucher && $generate_voucher && $transaction->status === 'successful') {
+                // send voucher to user via SMS
+                // remove + from phone number
+                $phoneNumber = preg_replace('/^\+/', '', $transaction->phone_number);
+
+                // send sms 
+                $sms_sent = SmsService::send($phoneNumber, "Your SuperSpotWiFi voucher code is: {$voucher->code}. Use it to access the internet. Thank you for using our service!");
             }
             return response()->json([
-                'message' => 'Transaction status updated successfully',
+                'message' => $message,
                 'transaction' => $transaction,
                 'voucher' => $transaction->status === 'successful' ? $voucher : null,
+                'sms_sent' => $sms_sent,
             ]);
         } catch (\Throwable $th) {
             //throw $th;
@@ -153,7 +112,7 @@ class PaymentController extends Controller
                 'error'   => $th->getMessage(),
             ]);
             return response()->json([
-                'message' => 'An error occurred while checking the transaction status',
+                'message' => 'An error occurred while checking the transaction status. Please contact support for assistance.',
                 'error'   => $th->getMessage(),
             ], 500);
         }

@@ -345,103 +345,164 @@ class MikroTikService
         }
     }
 
-    public function removeExpiredHotspotUsers()
+    public function removeExpiredHotspotUsersByUptime()
     {
         try {
             if (!$this->client) {
-                Log::error('MikroTik client is not initialized. Cannot remove expired hotspot users.');
+                Log::error('MikroTik client not initialized.');
                 return;
             }
 
-            // Step 1: Get all packages with session timeout mapping
-            $packages = VoucherPackage::all()
-                ->keyBy('profile_name')
-                ->map(function ($package) {
-                    return [
-                        'timeout' => $package->js_session_timeout,
-                        'unit'    => $package->session_timeout_unit,
-                    ];
-                });
+            // Fetch all user profiles with session-timeout
+            $profilesRaw = $this->client->query(new Query('/ip/hotspot/user/profile/print'))->read();
+            $profiles = collect($profilesRaw)->mapWithKeys(function ($profile) {
+                return [$profile['name'] => $profile['session-timeout'] ?? null];
+            });
 
-            // Step 2: Get all hotspot users
-            $query = new Query('/ip/hotspot/user/print');
-            $users = $this->client->query($query)->read();
+            // Fetch all hotspot users
+            $users = $this->client->query(new Query('/ip/hotspot/user/print'))->read();
 
             $expiredUsernames = [];
 
             foreach ($users as $user) {
                 $username = $user['name'] ?? null;
-                $profile = $user['profile'] ?? null;
-                $lastLoggedIn = $user['last-logged-in'] ?? null;
+                $profileName = $user['profile'] ?? null;
+                $uptime = $user['uptime'] ?? null;
 
-                if (!$username || !$profile || !$lastLoggedIn || !isset($packages[$profile])) {
+                if (!$username || !$profileName || !$uptime || !isset($profiles[$profileName])) {
                     continue;
                 }
 
-                try {
-                    $lastLogin = Carbon::parse($lastLoggedIn);
-                } catch (\Exception $e) {
-                    continue;
+                $sessionTimeout = $profiles[$profileName];
+                if (!$sessionTimeout) continue;
+
+                // Convert uptime and session-timeout to seconds
+                $uptimeSeconds = $this->durationToSeconds($uptime);
+                $timeoutSeconds = $this->durationToSeconds($sessionTimeout);
+
+                if ($uptimeSeconds >= $timeoutSeconds) {
+                    // Remove from MikroTik
+                    $findQuery = (new Query('/ip/hotspot/user/print'))->where('name', $username);
+                    $found = $this->client->query($findQuery)->read();
+
+                    if (isset($found[0]['.id'])) {
+                        $removeQuery = (new Query('/ip/hotspot/user/remove'))->equal('.id', $found[0]['.id']);
+                        $this->client->query($removeQuery)->read();
+                        $expiredUsernames[] = $username;
+                        Log::info("Removed expired user [{$username}] (profile: {$profileName}, uptime: {$uptime})");
+                    }
                 }
-
-                $timeout = $packages[$profile]['timeout'];
-                $unit = strtolower($packages[$profile]['unit']);
-
-                if (!$timeout || !$unit) continue;
-
-                $expiresAt = match ($unit) {
-                    'hours' => $lastLogin->copy()->addHours($timeout),
-                    'days' => $lastLogin->copy()->addDays($timeout),
-                    'minutes' => $lastLogin->copy()->addMinutes($timeout),
-                    default => null,
-                };
-
-                if (!$expiresAt || now()->lt($expiresAt)) {
-                    continue;
-                }
-
-                // Step 3: Remove from MikroTik
-                $findQuery = (new Query('/ip/hotspot/user/print'))->where('name', $username);
-                $found = $this->client->query($findQuery)->read();
-
-                if (isset($found[0]['.id'])) {
-                    $removeQuery = (new Query('/ip/hotspot/user/remove'))->equal('.id', $found[0]['.id']);
-                    $this->client->query($removeQuery)->read();
-                }
-
-                $expiredUsernames[] = $username;
-
-                Log::info("Expired hotspot user [{$username}] removed from MikroTik (profile: {$profile}).");
             }
 
-            // Step 4: Batch delete vouchers
+            // Delete from database
             if (!empty($expiredUsernames)) {
                 Voucher::whereIn('code', $expiredUsernames)->delete();
-                Log::info("Deleted expired vouchers for users: " . implode(', ', $expiredUsernames));
+                Log::info("Deleted vouchers for expired users: " . implode(', ', $expiredUsernames));
             }
-            // Step 5: Log success
+
+            // Log to router logs
             RouterLog::create([
                 'voucher_id' => null,
-                'action' => 'remove_expired_hotspot_users',
+                'action' => 'remove_expired_hotspot_users_by_uptime',
                 'success' => true,
-                'message' => "Removed expired hotspot users: " . implode(', ', $expiredUsernames),
+                'message' => 'Removed users by uptime: ' . implode(', ', $expiredUsernames),
                 'is_manual' => false,
                 'router_name' => $this->router->name ?? 'Unknown Router',
                 'router_id' => $this->router->id ?? null,
             ]);
-        } catch (\Throwable $th) {
-            Log::error('Failed to remove expired hotspot users: ' . $th->getMessage(), [
-                'trace' => $th->getTrace(),
-            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to remove expired users by uptime: ' . $e->getMessage());
             RouterLog::create([
                 'voucher_id' => null,
-                'action' => 'remove_expired_hotspot_users',
+                'action' => 'remove_expired_hotspot_users_by_uptime',
                 'success' => false,
-                'message' => $th->getMessage(),
+                'message' => $e->getMessage(),
                 'is_manual' => false,
                 'router_name' => $this->router->name ?? 'Unknown Router',
                 'router_id' => $this->router->id ?? null,
             ]);
+        }
+    }
+
+    /**
+     * Convert MikroTik time format (e.g., 1d2h30m15s) to seconds.
+     */
+    private function durationToSeconds($duration)
+    {
+        $pattern = '/(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/';
+        preg_match($pattern, $duration, $matches);
+        return ((int)($matches[1] ?? 0) * 86400) +
+            ((int)($matches[2] ?? 0) * 3600) +
+            ((int)($matches[3] ?? 0) * 60) +
+            ((int)($matches[4] ?? 0));
+    }
+
+
+    public function getUserStatistics()
+    {
+        if (!$this->client) {
+            Log::error('MikroTik client is not initialized. Cannot fetch user statistics.');
+            return [];
+        }
+
+        try {
+            $userQuery = new Query('/ip/hotspot/user/print');
+            $users = $this->client->query($userQuery)->read();
+
+            $activeQuery = new Query('/ip/hotspot/active/print');
+            $activeSessions = $this->client->query($activeQuery)->read();
+            $activeUsernames = array_column($activeSessions, 'user');
+
+            $now = Carbon::now()->format('Y-m-d');
+            $profileCountMap = [];
+
+            $totalUsers = count($users);
+            $activeUsers = 0;
+            $inactiveUsers = 0;
+            $onlineUsers = 0;
+            $usersCreatedToday = 0;
+
+            foreach ($users as $user) {
+                $lastLogin = $user['last-logged-in'] ?? null;
+                $username = $user['name'] ?? null;
+                $creationTime = $user['creation-time'] ?? null;
+                $profile = $user['profile'] ?? 'unknown';
+
+                // Profile count
+                $profileCountMap[$profile] = ($profileCountMap[$profile] ?? 0) + 1;
+
+                if ($lastLogin && strtolower($lastLogin) !== 'never') {
+                    $activeUsers++;
+                } else {
+                    $inactiveUsers++;
+                }
+
+                if (in_array($username, $activeUsernames)) {
+                    $onlineUsers++;
+                }
+
+                if ($creationTime && str_contains($creationTime, $now)) {
+                    $usersCreatedToday++;
+                }
+            }
+
+            // Sort profiles by count
+            arsort($profileCountMap);
+            $mostUsedProfile = array_key_first($profileCountMap);
+            $topProfiles = array_slice($profileCountMap, 0, 5, true);
+
+            return [
+                'total_users' => $totalUsers,
+                'active_users' => $activeUsers,
+                'inactive_users' => $inactiveUsers,
+                'online_users' => $onlineUsers,
+                'users_created_today' => $usersCreatedToday,
+                'most_used_profile' => $mostUsedProfile,
+                'top_profiles_by_user_count' => $topProfiles,
+            ];
+        } catch (\Throwable $th) {
+            Log::error('Failed to fetch MikroTik user statistics: ' . $th->getMessage());
+            return [];
         }
     }
 }

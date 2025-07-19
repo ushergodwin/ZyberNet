@@ -146,7 +146,13 @@
         <div class="step"><strong>Step 1:</strong> Connect to the <em>SuperSpot Wifi</em> network.</div>
         <div class="step"><strong>Step 2:</strong> Enter a valid voucher code or purchase one below.</div>
         <div class="step"><strong>Step 3:</strong> Enjoy uninterrupted internet access.</div>
-        <div class="step"><strong>Need help?</strong> Contact us via phone or WhatsApp.</div>
+        <div class="step"><strong>Need help?</strong><br/><br/>WhatsApp <a href="javascript:void(0)" class="phone"
+            onclick="openWhatsAppLink('https://wa.link/w3dfmd')">
+            +256 757 058906
+        </a> or <a href="javascript:void(0)" class="phone" 
+        onclick="openWhatsAppLink('https://wa.link/g5y14v')">
+            +256 757 972962 
+        </a> for support</div>
     </div>
 </div>
 
@@ -164,16 +170,21 @@
 </div>
 
 <footer>
-    Need assistance? Call <a href="tel:+256757058906">+256 757 058906</a> or <a href="javascript:void(0)" onclick="openWhatsAppLink()">WhatsApp</a><br>
     &copy; {{ date('Y') }} SuperSpot Wifi. Powered by <a href="#">Eng. Godwin</a>.
 </footer>
 
-<script>
-    function openWhatsAppLink() {
-        const whatsappUrl = "https://wa.link/ogbnmg";
-        window.open(whatsappUrl, '_blank');
-    }
-</script>
+    <script>
+        function openWhatsAppLink(whatsappUrl){
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/android/i.test(userAgent)) {
+                window.location.href = whatsappUrl;
+            } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                window.location.href = whatsappUrl;
+            } else {
+                window.open(whatsappUrl, '_blank');
+            }
+        }
+    </script>
 
 </body>
 </html>

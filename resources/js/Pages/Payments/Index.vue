@@ -62,7 +62,7 @@ const loadPayments = (page) => {
         });
 };
 
-const handlePageChange = (page) => {
+const handlePageChange = (page: number) => {
     if (page < 1 || page > state.pagination.last_page) return;
     loadPayments(page);
 };
@@ -102,6 +102,58 @@ onMounted(() => {
 onUnmounted(() => {
     emitter.off('search', handleSearch);
 });
+
+const checkTransactionStatus = async (payment_id: number) => {
+    try {
+        const result = await swalConfirm.fire({
+            icon: 'question',
+            html: `
+                <p>You are about to check the status of this transaction. Do you want to generate a voucher if the transaction is successful?</p>
+                <div class="form-check d-flex gap-3 text-center">
+                    <input type="checkbox" class="form-check-input" id="generate-voucher">
+                    <label class="form-check-label" for="generate-voucher">Yes Generate Voucher</label>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Check Status',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+            preConfirm: () => {
+                const checkbox = document.querySelector('#generate-voucher') as HTMLInputElement;
+                return { generateVoucher: checkbox?.checked ?? false };
+            },
+        });
+
+        if (!result.isConfirmed) return;
+
+        showLoader();
+        const { generateVoucher } = result.value;
+
+        const response = await axios.get(`/api/payments/voucher/status/${payment_id}`, {
+            params: { generate_voucher: generateVoucher },
+        });
+
+        hideLoader();
+
+        const transactionStatus = response.data.transaction?.status;
+        const message = response.data.message || 'Status check complete';
+
+        if (transactionStatus === 'successful') {
+            const voucherCode = response.data.voucher?.code;
+            const smsMessage = response.data?.sms_sent ? `A notification SMS with the voucher code has been sent to the user` : '';
+            const codeMessage = voucherCode ? ` ${smsMessage}<hr/> Voucher Code: ${voucherCode}` : '';
+            swalNotification('success', `${message}${codeMessage}`);
+        } else {
+            swalNotification('info', message);
+        }
+
+    } catch (err) {
+        hideLoader();
+        const errorMessage = err.response?.data?.message || 'Error checking transaction status';
+        swalNotification('error', errorMessage);
+    }
+};
+
 </script>
 
 <template>
@@ -126,18 +178,17 @@ onUnmounted(() => {
             <table class="table table-striped table-hover" v-if="state.payments.length">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>Phone Number</th>
                         <th>Amount</th>
                         <th>Package</th>
                         <th>Voucher</th>
                         <th>Status</th>
                         <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="payment in state.payments" :key="payment.id">
-                        <td>{{ payment.payment_id }}</td>
                         <td>{{ payment.phone_number }}</td>
                         <td>{{ payment.formatted_amount }}</td>
                         <td>{{ payment.package.name }}</td>
@@ -150,6 +201,16 @@ onUnmounted(() => {
 
                         <td>
                             {{ formatDate(payment.created_at) }}
+                        </td>
+                        <td>
+                            <!-- v-if="payment.channel == 'mobile_money'"-->
+                            <button class="btn btn-success btn-sm" @click="checkTransactionStatus(payment.payment_id)"
+                                v-if="payment.channel == 'mobile_money'">
+                                <i class="fas fa-sync"></i> Check Status
+                            </button>
+                            <span v-else>
+                                <i class="fas fa-check-circle text-success"></i> No action needed
+                            </span>
                         </td>
                     </tr>
                 </tbody>

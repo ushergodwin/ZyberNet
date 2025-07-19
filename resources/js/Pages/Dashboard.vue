@@ -8,19 +8,21 @@ const state = reactive({
     user: usePage().props.auth.user,
     notifications: usePage().props.notifications || [],
     stats: {
-        total_users: 0,
+        total_revenue: 0,
+        total_users_on_router: 0,
+        active_users: 0,
+        inactive_users: 0,
+        online_users: 0,
+        users_created_today: 0,
+        most_used_profile: "Unknown",
+        top_profiles_by_user_count: null,
         total_vouchers: 0,
-        active_vouchers: 0,
-        inactive_vouchers: 0,
         expired_vouchers: 0,
-        used_vouchers: 0,
-        unused_vouchers: 0,
         total_packages: 0,
         active_routers: 0,
         transactions: 0,
         successful_transactions: 0,
         failed_transactions: 0,
-        total_revenue: 0
     },
     isLoading: false,
     routers: [],
@@ -72,6 +74,7 @@ onMounted(() => {
 });
 
 const capitalize = (str) => {
+    if (!str) return '';
     // first replace underscores with spaces
     str = str.replace(/_/g, ' ');
     // then capitalize the first letter of each word
@@ -95,7 +98,8 @@ const capitalize = (str) => {
         </div>
         <div class="row">
             <div class="col-md-3 mb-3" v-for="key in Object.keys(state.stats)" :key="key">
-                <div class="card bg-light text-dark p-3">
+                <div class="card bg-light text-dark p-3"
+                    v-if="key !== 'top_profiles_by_user_count' && state.stats[key] !== undefined">
                     <h5>{{ capitalize(key) }}</h5>
                     <span class="spinner-border spinner-border-sm text-primary" v-if="state.isLoading"></span>
                     <p class="h2" v-else>{{ state.stats[key] }}</p>
@@ -103,5 +107,23 @@ const capitalize = (str) => {
             </div>
         </div>
 
+        <div v-if="state.stats.top_profiles_by_user_count && Object.keys(state.stats.top_profiles_by_user_count).length"
+            class="mt-4">
+            <h5>Top Profiles by User Count</h5>
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th>Profile</th>
+                        <th>User Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(count, profile) in state.stats.top_profiles_by_user_count" :key="profile">
+                        <td>{{ profile }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 </template>

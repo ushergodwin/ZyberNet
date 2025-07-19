@@ -8,7 +8,9 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherPackage;
+use App\Services\MikroTikService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ReportsController extends Controller
 {
@@ -35,21 +37,10 @@ class ReportsController extends Controller
         // Ensure that the total revenue is formatted correctly
         $totalRevenue = number_format(intval($totalRevenue), 2);
         $statistics = [
-            'total_users' => User::count(),
             'total_vouchers' => Voucher::when($routerId, function ($query) use ($routerId) {
                 return $query->where('router_id', $routerId);
             })->count(),
-            'active_vouchers' => Voucher::where('expires_at', '>', now())
-                ->when($routerId, function ($query) use ($routerId) {
-                    return $query->where('router_id', $routerId);
-                })->count(),
             'expired_vouchers' => Voucher::where('expires_at', '<', now())->when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })->count(),
-            'used_vouchers' => Voucher::where('is_used', 1)->when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })->count(),
-            'unused_vouchers' => Voucher::where('is_used', 0)->when($routerId, function ($query) use ($routerId) {
                 return $query->where('router_id', $routerId);
             })->count(),
             'total_packages' => VoucherPackage::when($routerId, function ($query) use ($routerId) {
@@ -73,6 +64,23 @@ class ReportsController extends Controller
             'mobile_money_revenue' => number_format(intval($mobileMoneyRevenue), 2) . ' UGX',
             'total_revenue' => $totalRevenue . ' UGX',
         ];
+
+        $routerStats = [];
+
+        if ($routerId) {
+            $router = RouterConfiguration::find($routerId);
+            if ($router && config('app.env') === 'production' && $router->is_active) {
+                try {
+                    $mikrotik = new MikroTikService($router);
+                    $routerStats = $mikrotik->getUserStatistics();
+                } catch (\Exception $e) {
+                    Log::warning("Could not fetch router stats: " . $e->getMessage());
+                }
+            }
+        }
+
+        $statistics = array_merge($routerStats, $statistics);
+
 
         return response()->json($statistics);
     }
