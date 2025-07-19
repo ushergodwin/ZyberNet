@@ -26,7 +26,7 @@ class PaymentController extends Controller
                 'voucher_code' => 'nullable|string',
             ]);
 
-            $voucher_code = $validated['voucher_code'] ?? null;
+            $voucher_code = $validated['voucher_code'] ?? "";
 
             $package = VoucherPackage::findOrFail($validated['package_id']);
             if (!$package) {
