@@ -1,25 +1,20 @@
 <?php
-
-use App\Http\Controllers\DeployController;
+// routes/web.php
 use App\Http\Controllers\HotspotController;
 use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VoucherController;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', [HotspotController::class, 'index'])->name('hotspot.index');
-Route::post('/', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login')
-    ->withoutMiddleware(VerifyCsrfToken::class);
+Route::get('/connect', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login');
 Route::post('/hotspot-login', [HotspotController::class, 'authenticate']);
 Route::post('/hotspot-link-login', [HotspotController::class, 'login'])->name('hotspot.authenticate');
 Route::get('/hotspot-login-successful', [HotspotController::class, 'success'])->name('hotspot.success');
 Route::get('/buy-voucher/{id}', [HotspotController::class, 'buyVoucher'])->name('hotspot.buyVoucher');
-// run migration 
-Route::get('/run-migrations', [DeployController::class, 'migrate']);
 
 // authenticated routes
 Route::middleware([

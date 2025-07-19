@@ -1,101 +1,29 @@
-# name: 🚀 Deploy SuperSpot Wifi (via SCP)
+name: 🚀 Deploy to Server
 
-# on:
-#   workflow_run:
-#     workflows: ["SuperSpot Wifi CI"]
-#     types:
-#       - completed
+on:
+  push:
+    branches:
+      - main # or your deploy branch
 
-# jobs:
-#   deploy:
-#     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-#     runs-on: ubuntu-latest
-#     env:
-#       BUILD_PATH: public/build
+jobs:
+  deploy:
+    name: Deploy SuperspotWiFi App
+    runs-on: ubuntu-latest
 
-#     steps:
-#       - name: 🧾 Checkout Code
-#         uses: actions/checkout@v3
+    steps:
+      - name: 🔐 Install SSH Client
+        run: sudo apt-get install -y sshpass
 
-#       - name: 🔐 Create SSH Key File
-#         run: |
-#           mkdir -p ~/.ssh
-#           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh.key
-#           chmod 600 ~/.ssh/ssh.key
-#         shell: bash
-
-#       - name: 🖧 Setup SSH Config
-#         run: |
-#           cat >>~/.ssh/config <<END
-#           Host production-server
-#             HostName ${{ secrets.SSH_HOST }}
-#             User ${{ secrets.SSH_USER }}
-#             Port 2638
-#             IdentityFile ~/.ssh/ssh.key
-#             StrictHostKeyChecking no
-#           END
-#         shell: bash
-
-#       - name: 🧰 Setup PHP
-#         uses: shivammathur/setup-php@v2
-#         with:
-#           php-version: "8.2"
-#           extensions: mbstring, bcmath, intl
-#           tools: composer
-
-#       - name: ⚙️ Install PHP Dependencies
-#         run: composer install --no-dev --optimize-autoloader
-
-#       - name: ⚙️ Setup Node.js
-#         uses: actions/setup-node@v3
-#         with:
-#           node-version: 20
-
-#       - name: 📦 Install JS Dependencies & Build Assets
-#         run: |
-#           npm ci
-#           npm run build
-
-#       - name: 📦 Create Laravel App Tarball
-#         run: |
-#           tar --exclude=node_modules \
-#               --exclude=tests \
-#               --exclude=.git \
-#               --exclude=.github \
-#               --exclude=.env \
-#               --exclude=resources \
-#               --exclude=vite.config.js \
-#               --exclude=webpack.mix.js \
-#               --warning=no-file-changed \
-#               -czf laravel.tar.gz . || true
-
-#       - name: 📤 Upload Laravel Tarball
-#         run: scp -P 2638 -i ~/.ssh/ssh.key laravel.tar.gz production-server:${{ secrets.DEPLOY_PATH }}/laravel.tar.gz
-
-#       - name: ✅ Extract App on Remote Server (and create public dir)
-#         uses: appleboy/ssh-action@master
-#         with:
-#           host: ${{ secrets.SSH_HOST }}
-#           username: ${{ secrets.SSH_USER }}
-#           key: ${{ secrets.SSH_PRIVATE_KEY }}
-#           port: 2638
-#           script: |
-#             cd ${{ secrets.DEPLOY_PATH }}
-#             tar -xzf laravel.tar.gz && rm laravel.tar.gz
-
-#       - name: 📤 Upload Vite Assets
-#         run: scp -P 2638 -i ~/.ssh/ssh.key -r public/build/* production-server:${{ secrets.DEPLOY_PATH }}/public/build/
-
-#       - name: 🛠️ Final Laravel Commands
-#         uses: appleboy/ssh-action@master
-#         with:
-#           host: ${{ secrets.SSH_HOST }}
-#           username: ${{ secrets.SSH_USER }}
-#           key: ${{ secrets.SSH_PRIVATE_KEY }}
-#           port: 2638
-#           script: |
-#             cd ${{ secrets.DEPLOY_PATH }}
-#             php artisan migrate --force --seed
-#             php artisan config:cache
-#             php artisan route:cache
-#             php artisan view:cache
+      - name: 🚀 Deploy via SSH
+        env:
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+        run: |
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USERNAME@$SERVER_IP "
+            cd /var/www/superspotwifi &&
+            git pull &&
+            docker compose up --build -d &&
+            docker exec superspotwifi-app php artisan migrate --force &&
+            docker exec superspotwifi-app npm run build
+          "

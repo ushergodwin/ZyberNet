@@ -7,6 +7,7 @@ use App\Models\Voucher;
 use App\Models\VoucherPackage;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Session;
 
 class HotspotController extends Controller
 {
@@ -80,16 +81,16 @@ class HotspotController extends Controller
 
     public function showWiFiLogin(Request $request)
     {
-        $link_login = $request->post('link-login', null);
-        $link_orig = $request->post('link-orig', null);
-        $mac = $request->post('mac', null);
-        $ip = $request->post('ip', null);
-        $router_id = $request->post('router_id', null);
+        $link_login = $request->input('link-login', null);
+        $link_orig = $request->input('link-orig', null);
+        $mac = $request->input('mac', null);
+        $ip = $request->input('ip', null);
+        $router_id = $request->input('router_id', null);
 
         // check router exists
         RouterConfiguration::findOrFail($router_id);
         // store session data
-        session([
+        Session::put([
             'link_login' => $link_login,
             'link_orig'  => $link_orig,
             'mac'        => $mac,
