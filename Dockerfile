@@ -24,8 +24,8 @@ COPY . .
 RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage /var/www/bootstrap/cache
 
-# Install Node 18+ (if using Inertia, Jetstream, Vite)
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+# Install Node 20+ (for Inertia, Jetstream, Vite)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
 # Expose PHP-FPM port
