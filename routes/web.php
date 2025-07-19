@@ -59,7 +59,13 @@ Route::post('/login', function (Request $request) {
 
     if (Auth::attempt($credentials, $request->boolean('remember'))) {
         $request->session()->regenerate();
-        return redirect()->intended('/dashboard');
+
+        // Return appropriate response depending on request type
+        if ($request->header('X-Inertia')) {
+            return Inertia::location('/dashboard'); // Inertia redirect
+        }
+
+        return redirect()->intended('/dashboard'); // Standard redirect
     }
 
     return back()->withErrors([
@@ -73,5 +79,10 @@ Route::post('/logout', function (Request $request) {
     $request->session()->invalidate();
     $request->session()->regenerateToken();
 
-    return redirect('/login');
+    // Redirect correctly depending on request type
+    if ($request->header('X-Inertia')) {
+        return Inertia::location('/login'); // Inertia redirect
+    }
+
+    return redirect('/login'); // Standard redirect
 })->name('logout');
