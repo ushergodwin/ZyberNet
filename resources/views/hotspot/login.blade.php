@@ -234,14 +234,15 @@
             {{-- <div class="tab">VIP</div> --}}
         </div>
 
-        <form method="POST" action="/hotspot-login" class="position-relative">
-            @csrf
-            <input type="hidden" name="link_login" value="{{ $link_login }}">
+        <form method="POST" action="{{ $link_login }}" onsubmit="setPasswordField()" class="position-relative">
             <div class="position-relative mb-3">
-                <input type="text" name="voucher_code" class="form-control" placeholder="Enter voucher code" required>
+                <input type="text" id="voucher" name="username" class="form-control" placeholder="Enter voucher code" required>
+                <input type="hidden" name="password" id="password">
+                <input type="hidden" name="dst" value="https://www.google.com" />
             </div>
-            <button type="submit" class="submit-button" @disabled(!$link_login)>Connect</button>
+            <button type="submit" class="submit-button">Connect</button>
         </form>
+
 
         @if(session('error') || $error)
             <div class="alert">
@@ -283,6 +284,12 @@
         </div>
     </div>
     <script>
+
+            function setPasswordField() {
+                const voucher = document.getElementById('voucher').value;
+                document.getElementById('password').value = voucher;
+            }
+        
         function openWhatsAppLink(whatsappUrl){
             const userAgent = navigator.userAgent || navigator.vendor || window.opera;
             if (/android/i.test(userAgent)) {
