@@ -205,7 +205,7 @@ const checkTransactionStatus = async (payment_id: number) => {
                         <td>
                             <!-- v-if="payment.channel == 'mobile_money'"-->
                             <button class="btn btn-success btn-sm" @click="checkTransactionStatus(payment.payment_id)"
-                                v-if="payment.channel == 'mobile_money'">
+                                v-if="payment.channel == 'mobile_money' && ['new', 'instructions_sent'].includes(payment.status)">
                                 <i class="fas fa-sync"></i> Check Status
                             </button>
                             <span v-else>

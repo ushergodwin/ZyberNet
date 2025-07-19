@@ -19,7 +19,7 @@ class ReportsController extends Controller
     // get statistics data 
     public function getStatistics(Request $request)
     {
-        $routerId = $request->router_id;
+        $routerId = $request->router_id ?? 1;
         $totalRevenue = Transaction::where('status', 'successful')->when($routerId, function ($query) use ($routerId) {
             return $query->where('router_id', $routerId);
         })->sum('amount');
@@ -69,7 +69,7 @@ class ReportsController extends Controller
 
         if ($routerId) {
             $router = RouterConfiguration::find($routerId);
-            if ($router && config('app.env') === 'production' && $router->is_active) {
+            if ($router && config('app.env') != 'local') {
                 try {
                     $mikrotik = new MikroTikService($router);
                     $routerStats = $mikrotik->getUserStatistics();
