@@ -39,7 +39,7 @@ services:
         restart: unless-stopped
         environment:
             MYSQL_DATABASE: superspotwifi
-            MYSQL_ROOT_PASSWORD: r4U?BpC7Z+uwTa$U
+            MYSQL_ROOT_PASSWORD: r4UWiFiX@#862
             MYSQL_USER: superspot
             MYSQL_PASSWORD: ss@WiFi@#2025
         volumes:
