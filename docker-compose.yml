@@ -39,11 +39,9 @@ services:
         restart: unless-stopped
         environment:
             MYSQL_DATABASE: superspotwifi
-            MYSQL_ROOT_PASSWORD: root
+            MYSQL_ROOT_PASSWORD: r4U?BpC7Z+uwTa$U
             MYSQL_USER: superspot
             MYSQL_PASSWORD: ss@WiFi@#2025
-        ports:
-            - "3306:3306"
         volumes:
             - dbdata:/var/lib/mysql
         networks:
