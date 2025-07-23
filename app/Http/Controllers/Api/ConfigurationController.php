@@ -69,6 +69,8 @@ class ConfigurationController extends Controller
             'password' => 'nullable|string',
         ]);
 
+        // Encrypt the password if provided
+        $validated['password'] = encrypt($validated['password'] ?? '');
         $configuration->update($validated);
         return response()->json([
             'message' => 'Router Configuration updated successfully',
