@@ -491,7 +491,7 @@ class MikroTikService
                 'active_users' => $activeUsers,
                 'inactive_users' => $inactiveUsers,
                 'online_users' => $onlineUsers,
-                'users_created_today' => $usersCreatedToday,
+                // 'users_created_today' => $usersCreatedToday,
                 'most_used_profile' => $mostUsedProfile,
                 'top_profiles_by_user_count' => $topProfiles,
             ];
