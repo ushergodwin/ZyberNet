@@ -69,7 +69,7 @@ class RouterController extends Controller
         })->when($request->has('router_id'), function ($query) use ($request) {
             $query->where('router_id', $request->router_id);
         })
-            ->paginate(50);
+            ->paginate(200);
 
         return response()->json($logs);
     }
