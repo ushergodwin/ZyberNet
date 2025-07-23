@@ -356,12 +356,7 @@ class MikroTikService
             $expiredUsernames = [];
 
             // Fetch all vouchers with activated_at and valid profile
-            $vouchers = Voucher::whereNotNull('activated_at')
-                ->whereHas('package', function ($query) {
-                    $query->whereNotNull('js_session_timeout')
-                        ->whereNotNull('session_timeout_unit');
-                })
-                ->get();
+            $vouchers = Voucher::with('package')->whereNotNull('activated_at')->get();
 
             foreach ($vouchers as $voucher) {
                 $timeout = $voucher->package->js_session_timeout;
