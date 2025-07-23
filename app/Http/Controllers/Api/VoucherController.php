@@ -35,7 +35,13 @@ class VoucherController extends Controller
                 ->when($searchTerm === 'unused', function ($query) {
                     $query->where('is_used', 0);
                 })
-                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused']), function ($query) use ($searchTerm) {
+                ->when($searchTerm === 'activated:Y', function ($query) {
+                    $query->whereNotNull('activated_at');
+                })
+                ->when($searchTerm === 'activated:N', function ($query) {
+                    $query->whereNull('activated_at');
+                })
+                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused', 'activated:Y', 'activated:N']), function ($query) use ($searchTerm) {
                     $query->where(function ($q) use ($searchTerm) {
                         $q->where('code', 'like', '%' . $searchTerm . '%')
                             ->orWhereHas('package', function ($q2) use ($searchTerm) {
@@ -56,7 +62,13 @@ class VoucherController extends Controller
                 ->when($searchTerm === 'unused', function ($query) {
                     $query->where('is_used', 0);
                 })
-                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused']), function ($query) use ($searchTerm) {
+                ->when($searchTerm === 'activated:Y', function ($query) {
+                    $query->whereNotNull('activated_at');
+                })
+                ->when($searchTerm === 'activated:N', function ($query) {
+                    $query->whereNull('activated_at');
+                })
+                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused', 'activated:Y', 'activated:N']), function ($query) use ($searchTerm) {
                     $query->where(function ($q) use ($searchTerm) {
                         $q->where('code', 'like', '%' . $searchTerm . '%')
                             ->orWhereHas('package', function ($q2) use ($searchTerm) {
@@ -67,7 +79,7 @@ class VoucherController extends Controller
         })
             ->with('package')
             ->orderBy('created_at', 'desc')
-            ->paginate(50);
+            ->paginate(100);
 
 
         return response()->json($vouchers);
