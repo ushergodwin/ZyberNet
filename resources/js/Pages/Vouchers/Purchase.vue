@@ -19,7 +19,11 @@ const props = defineProps({
     packages: {
         type: Array,
         default: () => []
-    }
+    },
+    supportContacts: {
+        type: Array,
+        default: () => []
+    },
 });
 const phoneNumber = ref('');
 const transactionId = ref(null);

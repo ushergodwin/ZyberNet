@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\RouterConfiguration;
+use App\Models\SupportContact;
 use App\Models\User;
 use App\Models\VoucherPackage;
 use App\Services\MikroTikService;
@@ -264,5 +265,75 @@ class ConfigurationController extends Controller
             $users = $users->paginate(10);
         }
         return response()->json($users);
+    }
+
+    // get support-contacts
+    public function getSupportContacts(Request $request)
+    {
+
+        $contacts = SupportContact::query()
+            ->when(
+                $request->router_id != 0,
+                function ($query) use ($request) {
+                    $query->where('router_id', $request->router_id);
+                }
+            )
+            ->when($request->has('search'), function ($query) use ($request) {
+                $query->where('name', 'like', '%' . $request->search . '%')
+                    ->orWhere('email', 'like', '%' . $request->search . '%');
+            })
+            ->orderBy('created_at', 'desc')->get();
+        return response()->json($contacts);
+    }
+
+    // save support contacts
+    public function saveSupportContact(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'nullable|email',
+                'phone_number' => 'required|string|max:15',
+                'type' => 'required|string|max:100',
+                'router_id' => 'integer|nullable|exists:router_configurations,id',
+            ]);
+
+            $id = $request->input('id', null);
+            if ($id) {
+                $supportContact = SupportContact::findOrFail($id);
+                $supportContact->update($validated);
+            } else {
+                $supportContact = new SupportContact($validated);
+                $supportContact->save();
+            }
+            return response()->json([
+                'message' => $id ? 'Support contact updated successfully' : 'Support contact created successfully',
+                'contact' => $supportContact,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saving support contact: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'message' => 'Error saving support contact',
+            ], 500);
+        }
+    }
+
+    // delete support contact
+    public function deleteSupportContact($id)
+    {
+        try {
+            $contact = SupportContact::findOrFail($id);
+            $contact->delete();
+            return response()->json([
+                'message' => 'Support contact deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error deleting support contact: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error deleting support contact',
+            ], 500);
+        }
     }
 }

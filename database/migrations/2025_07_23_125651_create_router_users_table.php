@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('router_users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('router_id')->constrained()->onDelete('cascade');
+            $table->foreignId('router_id')->constrained('router_configurations')->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->timestamps();
             $table->unique(['router_id', 'user_id'], 'unique_router_user');

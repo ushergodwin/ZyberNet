@@ -271,14 +271,24 @@
             </table>
         </div>
 
-        <hr>
-        <div class="powered">
+
+        <div class="powered" style="margin-top: 10px;">
             Enter your voucher code to connect to {{ config('app.name')}} or buy a new voucher online and pay via mobile money.
-            <br/><br/>WhatsApp <a href="javascript:void(0)" class="phone" onclick="openWhatsAppLink('https://wa.link/w3dfmd')">
-            +256 757 058906
-        </a> or <a href="javascript:void(0)" class="phone"  onclick="openWhatsAppLink('https://wa.link/g5y14v')">
-            +256 757 972962 
-        </a> for support
+            <hr>
+              <div class="step"><strong>Need help?</strong><br/><br/>
+            Call @foreach ($supportContacts as $item)
+                @if ($item->type == 'Tel')
+                    <a href="tel:{{ $item->contact }}" class="phone">{{ $item->phone_number }}</a> &nbsp; 
+                @endif
+
+            @endforeach <br/>
+            WhatsApp
+            @foreach ($supportContacts as $item)
+                @if ($item->type == 'WhatsApp')
+                    <a href="https://wa.me/{{ $item->formatted_phone_number }}" class="phone" target="_blank">{{ $item->phone_number }}</a> &nbsp; 
+                @endif
+            @endforeach
+            for support
             <hr/>
             Powered by <a href="javascript:void(0)" class="phone" onclick="openWhatsAppLink('https://wa.link/ogbnmg')" > Eng. Godwin </a>
         </div>

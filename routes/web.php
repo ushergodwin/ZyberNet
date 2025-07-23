@@ -3,6 +3,7 @@
 use App\Http\Controllers\HotspotController;
 use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\RouterController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VoucherController;
 use Illuminate\Support\Facades\Auth;
@@ -39,6 +40,8 @@ Route::middleware([
         Route::get('/voucher-packages', [VoucherController::class, 'index'])->name('vouchers.index');
         // users
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        // settings
+        Route::get('/settings', [SettingsController::class, 'settings'])->name('settings.index');
     });
     // show logs
     Route::get('/routers/logs', [RouterController::class, 'logs'])->name('routers.logs');

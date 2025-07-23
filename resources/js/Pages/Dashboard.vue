@@ -9,8 +9,6 @@ const state = reactive({
     notifications: usePage().props.notifications || [],
     stats: {
         total_revenue: 0,
-        total_users_on_router: 0,
-        active_users: 0,
         inactive_users: 0,
         online_users: 0,
         users_created_today: 0,

@@ -44,8 +44,9 @@
             </div>
 
             <!-- Users -->
-            <a class="nav-link" href="#" @click="goTo('users.index')" :class="{ active: isActive(['users.index']) }">
-                <i class="fas fa-users me-2"></i> Users
+            <a class="nav-link" href="#" @click="goTo('settings.index')"
+                :class="{ active: isActive(['settings.index']) }">
+                <i class="fas fa-cog me-2"></i> Settings
             </a>
         </nav>
     </aside>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\RouterConfiguration;
+use App\Models\SupportContact;
 use App\Models\Voucher;
 use App\Models\VoucherPackage;
 use Illuminate\Http\Request;
@@ -15,8 +16,10 @@ class HotspotController extends Controller
     {
 
         $plans = VoucherPackage::where('router_id', 1)->get();
+        $supportContacts = SupportContact::whereNull('router_id')->get();
         return view('hotspot.index', [
             'plans' => $plans,
+            'supportContacts' => $supportContacts,
         ]);
     }
 
@@ -76,12 +79,19 @@ class HotspotController extends Controller
         $link_login = session('link_login', null);
         // get csrfToken
         $csrfToken = csrf_token();
+        $supportContacts = [];
+        if ($package) {
+            $supportContacts = SupportContact::where('router_id', $package->router_id)->get();
+        } else {
+            $supportContacts = SupportContact::whereNull('router_id')->get();
+        }
         return Inertia::render('Vouchers/Buy', [
             'package_id' => $package ? $package->id : null,
             'csrfToken' => $csrfToken,
             'packages' => VoucherPackage::all(),
             'wifi_name' => config('app.name', 'Hotspot WiFi'),
             'link_login' => $link_login,
+            'supportContacts' => $supportContacts
         ]);
     }
 
@@ -108,6 +118,12 @@ class HotspotController extends Controller
             ->where('is_active', true)
             ->get();
 
+        $supportContacts = [];
+        if ($router_id) {
+            $supportContacts = SupportContact::where('router_id', $router_id)->get();
+        } else {
+            $supportContacts = SupportContact::whereNull('router_id')->get();
+        }
         return view('hotspot.login', [
             'link_login' => $link_login,
             'link_orig'  => $link_orig,
@@ -116,6 +132,7 @@ class HotspotController extends Controller
             'plans'      => $plans,
             'router_id'  => $router_id,
             'error'      => $request->query('error', null),
+            'supportContacts' => $supportContacts
         ]);
     }
 }

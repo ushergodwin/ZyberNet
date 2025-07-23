@@ -50,6 +50,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/users/{id}', [AuthController::class, 'deleteUser'])->name('configuration.deleteUser');
         ///restore
         Route::post('/users/{id}/restore', [AuthController::class, 'restoreUser'])->name('configuration.restoreUser');
+
+        //support-contacts
+        Route::get('/support-contacts', [ConfigurationController::class, 'getSupportContacts'])->name('configuration.supportContacts');
+        // save support-contacts (POST)
+        Route::post('/support-contacts', [ConfigurationController::class, 'saveSupportContact'])->name('configuration.saveSupportContacts');
+
+        //delete support contact
+        Route::delete('/support-contacts/{id}', [ConfigurationController::class, 'deleteSupportContact'])->name('configuration.deleteSupportContact');
     });
 
     Route::prefix('/vouchers')->group(function () {

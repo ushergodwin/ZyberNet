@@ -24,6 +24,10 @@ const props = defineProps({
     wifi_name: {
         type: String,
         default: "SuperSpot Wifi"
+    },
+    supportContacts: {
+        type: Array,
+        default: () => []
     }
 });
 const phoneNumber = ref('');
@@ -232,11 +236,27 @@ onMounted(() => {
                     </form>
                 </div>
             </div>
-        </div>
-
-        <!-- Branding -->
-        <div class="text-center mt-4 small text-white-50">
-            Powered by <span class="text-info fw-bold">Eng. Godwin</span>
+            <hr />
+            <div v-if="props.supportContacts?.length"><strong>Need help?</strong></div>
+            <div v-if="props.supportContacts?.length" class="d-flex gap-1"> Call
+                <section v-for="contact in props.supportContacts?.filter(c => c.type == 'Tel')"
+                    :key="'t-' + contact?.id">
+                    <a :href="`tel:${contact?.formatted_phone_number}`">{{ contact?.phone_number }}</a>
+                </section>
+            </div>
+            <div v-if="props.supportContacts?.length" class="d-flex gap-1">WhatsApp
+                <section v-for="contact in props.supportContacts?.filter(c => c.type == 'WhatsApp')"
+                    :key="'w-' + contact?.id">
+                    <a :href="`https://wa.me/${contact?.formatted_phone_number}`" target="_blank"
+                        class="d-flex gap-3">{{
+                            contact?.phone_number
+                        }}</a>
+                </section>
+            </div>
+            <!-- Branding -->
+            <div class="text-center mt-4 small text-white-50">
+                Powered by <span class="text-info fw-bold">Eng. Godwin</span>
+            </div>
         </div>
     </div>
 </template>
