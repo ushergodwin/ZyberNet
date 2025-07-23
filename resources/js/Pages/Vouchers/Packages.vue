@@ -48,17 +48,12 @@ const submitForm = () => {
     axios[method](url, state.form)
         .then((res) => {
             hideLoader();
-            swalNotification('success', res.data.message);
-            state.showModal = false;
-            // prepend or update the vouchersPackages list
-            if (state.isEdit) {
-                const index = state.vouchersPackages.findIndex(pkg => pkg.id === state.form.id);
-                if (index !== -1) {
-                    state.vouchersPackages[index] = res.data.package;
-                }
-            } else {
-                state.vouchersPackages.unshift(res.data.package);
-            }
+            swalNotification('success', res.data.message || state.isEdit ? 'Package updated successfully.' : 'Package created successfully.')
+                .then(() => {
+                    state.showModal = false;
+                    // Reload the voucher packages
+                    loadVoucherPackages();
+                });
         })
         .catch((err) => {
             hideLoader();

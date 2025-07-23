@@ -19,7 +19,7 @@ return new class extends Migration
             $table->decimal('price', 10, 2);                // e.g. 1000.00 UGX
 
             // Router profile mapping
-            $table->string('profile_name')->unique();       // Must match router profile
+            $table->string('profile_name');
             $table->string('rate_limit')->nullable();       // e.g. '2M/2M'
             $table->string('session_timeout')->nullable();  // e.g. '1h', enforced by router
             $table->bigInteger('limit_bytes_total')->nullable(); // e.g. 300MB

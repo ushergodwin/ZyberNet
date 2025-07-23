@@ -122,8 +122,8 @@ function checkTransactionStatus() {
             const errorMessage = err.response?.data?.message || 'Error checking transaction status';
             swalNotification('error', errorMessage);
         }
-    }, // very minute
-        60000 // 60 seconds
+    }, // 45 seconds
+        45000
     );
 }
 

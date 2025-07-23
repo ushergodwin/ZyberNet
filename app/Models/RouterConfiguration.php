@@ -27,4 +27,9 @@ class RouterConfiguration extends Model
     {
         return 'router_configurations';
     }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class);
+    }
 }

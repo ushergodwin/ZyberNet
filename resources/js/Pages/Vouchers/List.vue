@@ -416,6 +416,7 @@ const selectAllVouchers = () => {
                         </th>
                         <th>Amount (UGX)</th>
                         <th>Package</th>
+                        <th>Activated</th>
                         <td>Expires In </td>
                         <th class="d-flex gap-2">
                             Actions
@@ -434,6 +435,11 @@ const selectAllVouchers = () => {
                         <td>{{ voucher.code }}</td>
                         <td>{{ voucher.package.name }}</td>
                         <td>{{ number_format(voucher.package.price) }}</td>
+                        <td>
+                            <span class="badge bg-success" v-if="voucher.activated_at">Y</span>
+                            <span class="badge bg-secondary" v-else>N</span>
+                        </td>
+
                         <td>{{ voucher.is_expired ? `Expired` : voucher.expires_in || `-` }}</td>
                         <td>
                             <div class="d-flex gap-3">
@@ -611,7 +617,7 @@ const selectAllVouchers = () => {
                                     <select v-model="state.form.package_id" class="form-select input-rounded">
                                         <option value="" disabled> -- select a plan --</option>
                                         <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">{{ pkg.name
-                                        }} - {{ pkg.formatted_price }}</option>
+                                            }} - {{ pkg.formatted_price }}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">

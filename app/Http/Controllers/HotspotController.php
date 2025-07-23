@@ -57,9 +57,15 @@ class HotspotController extends Controller
     // success page
     public function success(Request $request)
     {
-        // Clear the session data
-        $request->session()->forget(['link_login', 'link_orig', 'mac', 'ip']);
-        return view('hotspot.success');
+        $code = $request->query('username');
+
+        if ($code) {
+            Voucher::where('code', $code)
+                ->whereNull('activated_at')
+                ->update(['activated_at' => now()]);
+        }
+
+        return response()->json(['status' => 'ok']);
     }
 
     // buyVoucher

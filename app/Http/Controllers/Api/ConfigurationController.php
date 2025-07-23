@@ -47,7 +47,7 @@ class ConfigurationController extends Controller
             'host' => $validated['host'],
             'port' => $validated['port'],
             'username' => $validated['username'],
-            'password' => $validated['password'] ?? null, // Allow password to be nullable
+            'password' => $validated['password'] ? encrypt($validated['password']) : encrypt(''),
         ];
         $configuration = RouterConfiguration::create($data);
         return response()->json([

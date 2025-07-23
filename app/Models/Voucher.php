@@ -19,6 +19,7 @@ class Voucher extends Model
         'expires_at',
         'is_used',
         'router_id',
+        'activated_at',
     ];
 
     protected $casts = [

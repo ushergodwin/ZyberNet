@@ -47,7 +47,7 @@ class MikroTikService
                 $this->client = new Client([
                     'host' => $router->host,
                     'user' => $router->username,
-                    'pass' => $router->password ?? '', // Use empty string if password is null
+                    'pass' => decrypt($router->password),
                     'port' => $router->port,
                 ]);
             }
@@ -345,84 +345,84 @@ class MikroTikService
         }
     }
 
-    public function removeExpiredHotspotUsersByUptime()
+    public function removeExpiredHotspotUsers()
     {
         try {
             if (!$this->client) {
-                Log::error('MikroTik client not initialized.');
+                Log::error('MikroTik client is not initialized. Cannot remove expired hotspot users.');
                 return;
             }
 
-            // Fetch all user profiles with session-timeout
-            $profilesRaw = $this->client->query(new Query('/ip/hotspot/user/profile/print'))->read();
-            $profiles = collect($profilesRaw)->mapWithKeys(function ($profile) {
-                return [$profile['name'] => $profile['session-timeout'] ?? null];
-            });
-
-            // Fetch all hotspot users
-            $users = $this->client->query(new Query('/ip/hotspot/user/print'))->read();
-
             $expiredUsernames = [];
 
-            foreach ($users as $user) {
-                $username = $user['name'] ?? null;
-                $profileName = $user['profile'] ?? null;
-                $uptime = $user['uptime'] ?? null;
+            // Fetch all vouchers with activated_at and valid profile
+            $vouchers = Voucher::whereNotNull('activated_at')
+                ->whereHas('package', function ($query) {
+                    $query->whereNotNull('js_session_timeout')
+                        ->whereNotNull('session_timeout_unit');
+                })
+                ->get();
 
-                if (!$username || !$profileName || !$uptime || !isset($profiles[$profileName])) {
+            foreach ($vouchers as $voucher) {
+                $timeout = $voucher->package->js_session_timeout;
+                $unit = strtolower($voucher->package->session_timeout_unit);
+                $activatedAt = Carbon::parse($voucher->activated_at);
+
+                $expiresAt = match ($unit) {
+                    'minutes' => $activatedAt->copy()->addMinutes($timeout),
+                    'hours' => $activatedAt->copy()->addHours($timeout),
+                    'days' => $activatedAt->copy()->addDays($timeout),
+                    default => null,
+                };
+
+                if (!$expiresAt || now()->lt($expiresAt)) {
                     continue;
                 }
 
-                $sessionTimeout = $profiles[$profileName];
-                if (!$sessionTimeout) continue;
+                // Remove from MikroTik
+                $findQuery = (new Query('/ip/hotspot/user/print'))->where('name', $voucher->code);
+                $found = $this->client->query($findQuery)->read();
 
-                // Convert uptime and session-timeout to seconds
-                $uptimeSeconds = $this->durationToSeconds($uptime);
-                $timeoutSeconds = $this->durationToSeconds($sessionTimeout);
-
-                if ($uptimeSeconds >= $timeoutSeconds) {
-                    // Remove from MikroTik
-                    $findQuery = (new Query('/ip/hotspot/user/print'))->where('name', $username);
-                    $found = $this->client->query($findQuery)->read();
-
-                    if (isset($found[0]['.id'])) {
-                        $removeQuery = (new Query('/ip/hotspot/user/remove'))->equal('.id', $found[0]['.id']);
-                        $this->client->query($removeQuery)->read();
-                        $expiredUsernames[] = $username;
-                        Log::info("Removed expired user [{$username}] (profile: {$profileName}, uptime: {$uptime})");
-                    }
+                if (isset($found[0]['.id'])) {
+                    $removeQuery = (new Query('/ip/hotspot/user/remove'))->equal('.id', $found[0]['.id']);
+                    $this->client->query($removeQuery)->read();
                 }
+
+                $expiredUsernames[] = $voucher->code;
             }
 
-            // Delete from database
             if (!empty($expiredUsernames)) {
                 Voucher::whereIn('code', $expiredUsernames)->delete();
-                Log::info("Deleted vouchers for expired users: " . implode(', ', $expiredUsernames));
+
+                Log::info("Deleted expired vouchers: " . implode(', ', $expiredUsernames));
             }
 
-            // Log to router logs
             RouterLog::create([
                 'voucher_id' => null,
-                'action' => 'remove_expired_hotspot_users_by_uptime',
+                'action' => 'remove_expired_hotspot_users',
                 'success' => true,
-                'message' => 'Removed users by uptime: ' . implode(', ', $expiredUsernames),
+                'message' => "Removed expired hotspot users: " . implode(', ', $expiredUsernames),
                 'is_manual' => false,
                 'router_name' => $this->router->name ?? 'Unknown Router',
                 'router_id' => $this->router->id ?? null,
             ]);
-        } catch (\Throwable $e) {
-            Log::error('Failed to remove expired users by uptime: ' . $e->getMessage());
+        } catch (\Throwable $th) {
+            Log::error('Failed to remove expired hotspot users: ' . $th->getMessage(), [
+                'trace' => $th->getTrace(),
+            ]);
+
             RouterLog::create([
                 'voucher_id' => null,
-                'action' => 'remove_expired_hotspot_users_by_uptime',
+                'action' => 'remove_expired_hotspot_users',
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $th->getMessage(),
                 'is_manual' => false,
                 'router_name' => $this->router->name ?? 'Unknown Router',
                 'router_id' => $this->router->id ?? null,
             ]);
         }
     }
+
 
     /**
      * Convert MikroTik time format (e.g., 1d2h30m15s) to seconds.

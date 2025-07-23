@@ -17,7 +17,9 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('router_configurations')
                 ->onDelete('set null')
-                ->after('id'); // Assuming 'id' is the last column in voucher_packages
+                ->after('id');
+            // unique index on profile_name and router_id
+            $table->unique(['profile_name', 'router_id'], 'unique_profile_router');
         });
     }
 

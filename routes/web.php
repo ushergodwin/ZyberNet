@@ -57,20 +57,15 @@ Route::post('/login', function (Request $request) {
         'password' => ['required'],
     ]);
 
-    if (Auth::attempt($credentials, $request->boolean('remember'))) {
+    if (Auth::attempt($credentials)) {
         $request->session()->regenerate();
-
         // Return appropriate response depending on request type
-        if ($request->header('X-Inertia')) {
-            return Inertia::location('/dashboard'); // Inertia redirect
-        }
-
-        return redirect()->intended('/dashboard'); // Standard redirect
+        return Inertia::location('/dashboard');
     }
 
-    return back()->withErrors([
-        'email' => 'The provided credentials do not match our records.',
-    ]);
+    return Inertia::render('Auth/Login', [
+        'error' => 'The provided credentials do not match our records.',
+    ])->toResponse($request);
 })->name('login');
 
 Route::post('/logout', function (Request $request) {
@@ -80,9 +75,5 @@ Route::post('/logout', function (Request $request) {
     $request->session()->regenerateToken();
 
     // Redirect correctly depending on request type
-    if ($request->header('X-Inertia')) {
-        return Inertia::location('/login'); // Inertia redirect
-    }
-
-    return redirect('/login'); // Standard redirect
+    return Inertia::location('/login'); // Inertia redirect
 })->name('logout');
