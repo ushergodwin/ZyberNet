@@ -31,6 +31,7 @@ class Voucher extends Model
         'is_active',
         'formatted_expiry_date',
         'expires_in',
+        'activated_at_time'
     ];
 
     public function transaction()
@@ -106,5 +107,20 @@ class Voucher extends Model
         // formulate expiry word i.e if $lastLetter is 'd' then 'days', if 'h' then 'hours'
         $expiryWord = $lastLetter === 'd' ? 'days' :  'hours';
         return $profileNameWithoutLastLetter . ' ' . ucfirst($expiryWord);
+    }
+
+    public function getActivatedAtTimeAttribute()
+    {
+        if (is_null($this->activated_at)) {
+            return '-';
+        }
+
+        $activatedAt = Carbon::parse($this->activated_at);
+
+        if ($activatedAt->isToday()) {
+            return $activatedAt->format('h:i A'); // Example: "03:45 PM"
+        }
+
+        return $activatedAt->format('Y-m-d h:i A'); // Example: "2025-07-24 03:45 PM"
     }
 }
