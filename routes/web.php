@@ -63,13 +63,14 @@ Route::post('/login', function (Request $request) {
 
     if (Auth::attempt($credentials)) {
         $request->session()->regenerate();
-        return Inertia::location('/dashboard');
+
+        return redirect()->intended('/dashboard');
     }
 
     throw ValidationException::withMessages([
         'email' => ['The provided credentials do not match our records.'],
     ]);
-});
+})->name('login');
 
 Route::post('/logout', function (Request $request) {
     Auth::logout();
@@ -78,5 +79,5 @@ Route::post('/logout', function (Request $request) {
     $request->session()->regenerateToken();
 
     // Redirect correctly depending on request type
-    return Inertia::location('/login'); // Inertia redirect
+    return redirect()->intended('/login');
 })->name('logout');
