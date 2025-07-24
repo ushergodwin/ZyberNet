@@ -9,8 +9,7 @@ use App\Http\Controllers\VoucherController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\Auth\LoginController;
 
 Route::get('/', [HotspotController::class, 'index'])->name('hotspot.index');
 Route::get('/connect', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login');
@@ -55,31 +54,6 @@ Route::middleware([
 });
 
 
-Route::middleware(['web'])->group(function () {
-    Route::post('/login', function (Request $request) {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
-
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
-
-            return redirect()->intended('/dashboard');
-        }
-
-        throw ValidationException::withMessages([
-            'email' => ['The provided credentials do not match our records.'],
-        ]);
-    })->name('login');
-
-    Route::post('/logout', function (Request $request) {
-        Auth::logout();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        // Redirect correctly depending on request type
-        return redirect()->intended('/login');
-    })->name('logout');
-});
+Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [LoginController::class, 'login']);
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');

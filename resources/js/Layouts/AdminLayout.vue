@@ -68,6 +68,9 @@
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenu">
                         <li>
+                            <form id="logout-form" method="POST" action="/logout" style="display:none;">
+                                <input type="hidden" name="_token" :value="csrfToken" />
+                            </form>
                             <button class="dropdown-item text-danger" @click="logout">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </button>
@@ -95,18 +98,20 @@ export default {
             currentUser: this.$page.props.auth?.user || null,
             currentRoute: this.$page.props.route || null,
             searchQuery: '',
+            csrfToken: null,
         };
     },
     mixins: [emitter],
     mounted() {
         this.initCollapses();
+        this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     },
     methods: {
         goTo(routeName) {
             this.$inertia.visit(route(routeName));
         },
         logout() {
-            this.$inertia.post(route('logout'));
+            document.getElementById('logout-form').submit();
         },
         toggleArrowIcon(id) {
             const icon = document.getElementById(id);
