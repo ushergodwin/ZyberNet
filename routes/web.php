@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
-use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\ValidationException;
 
 Route::get('/', [HotspotController::class, 'index'])->name('hotspot.index');
 Route::get('/connect', [HotspotController::class, 'showWiFiLogin'])->name('hotspot.login');
@@ -66,16 +66,9 @@ Route::post('/login', function (Request $request) {
         return Inertia::location('/dashboard');
     }
 
-    if ($request->header('X-Inertia')) {
-        return Inertia::render('Auth/Login', [
-            'error' => 'The provided credentials do not match our records.',
-        ]);
-    }
-
-    // This forces Inertia to respond correctly
-    throw new HttpResponseException(response()->json([
-        'error' => 'The provided credentials do not match our records.',
-    ], 422));
+    throw ValidationException::withMessages([
+        'email' => ['The provided credentials do not match our records.'],
+    ]);
 });
 
 Route::post('/logout', function (Request $request) {

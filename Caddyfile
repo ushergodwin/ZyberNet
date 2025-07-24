@@ -1,5 +1,24 @@
 hotspot.superspotwifi.net {
     root * /var/www/public
     php_fastcgi superspotwifi-app:9000
+
+    encode gzip
     file_server
+
+    # Add standard security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "accelerometer=(), camera=(), geolocation=(), microphone=()"
+        # Optional: Remove Caddy server info
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/access.log
+        level info
+        format single_field common_log
+    }
 }
