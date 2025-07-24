@@ -19,6 +19,8 @@ const token = usePage().props?.auth?.user?.api_token;
 if (token) {
     axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 }
+axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
+axios.defaults.headers.common["X-Inertia"] = "true";
 
 const appName = import.meta.env.VITE_APP_NAME || "SuperSpot Wifi ";
 
