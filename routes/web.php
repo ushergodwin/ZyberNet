@@ -55,29 +55,31 @@ Route::middleware([
 });
 
 
-Route::post('/login', function (Request $request) {
-    $credentials = $request->validate([
-        'email' => ['required', 'email'],
-        'password' => ['required'],
-    ]);
+Route::middleware(['web'])->group(function () {
+    Route::post('/login', function (Request $request) {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
 
-    if (Auth::attempt($credentials)) {
-        $request->session()->regenerate();
+        if (Auth::attempt($credentials)) {
+            $request->session()->regenerate();
 
-        return redirect()->intended('/dashboard');
-    }
+            return redirect()->intended('/dashboard');
+        }
 
-    throw ValidationException::withMessages([
-        'email' => ['The provided credentials do not match our records.'],
-    ]);
-})->name('login');
+        throw ValidationException::withMessages([
+            'email' => ['The provided credentials do not match our records.'],
+        ]);
+    })->name('login');
 
-Route::post('/logout', function (Request $request) {
-    Auth::logout();
+    Route::post('/logout', function (Request $request) {
+        Auth::logout();
 
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-    // Redirect correctly depending on request type
-    return redirect()->intended('/login');
-})->name('logout');
+        // Redirect correctly depending on request type
+        return redirect()->intended('/login');
+    })->name('logout');
+});
