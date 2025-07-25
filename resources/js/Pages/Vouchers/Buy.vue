@@ -96,39 +96,60 @@ async function purchaseVoucher() {
 // Check transaction status periodically
 function checkTransactionStatus() {
     if (!transactionId.value) return;
+
     checkingStatus.value = true;
+    const pollingInterval = 10000; // 10 seconds
+    const timeoutDuration = 180000; // 3 minutes max
+    let elapsed = 0;
+    let interval = null;
 
-    const interval = setInterval(async () => {
-        try {
-            const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}`);
-            if (response.data.voucher) {
-                clearInterval(interval);
-                voucher.value = response.data.voucher;
-                swalNotification('success', 'Voucher is ready!')
-                    .then(() => {
-                        checkingStatus.value = false;
-                        processingPayment.value = false;
-                        // automatically connect to WiFi
-                        connectToWiFi();
-                    });
+    // Start polling after initial delay
+    setTimeout(() => {
+        interval = setInterval(async () => {
+            elapsed += pollingInterval;
 
-            }
-            // if transaction.status is 'failed', clear interval and show error
-            if (response.data.transaction?.status === 'failed') {
+            try {
+                const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}`);
+                const status = response.data.transaction?.status;
+                const voucherData = response.data.voucher;
+
+                if (voucherData) {
+                    clearInterval(interval);
+                    checkingStatus.value = false;
+                    processingPayment.value = false;
+                    voucher.value = voucherData;
+
+                    swalNotification('success', 'Voucher is ready!')
+                        .then(() => connectToWiFi());
+                    return;
+                }
+
+                if (status === 'failed') {
+                    clearInterval(interval);
+                    checkingStatus.value = false;
+                    processingPayment.value = false;
+
+                    swalNotification('error', 'Transaction failed. Please try again.');
+                    return;
+                }
+
+                if (elapsed >= timeoutDuration) {
+                    clearInterval(interval);
+                    checkingStatus.value = false;
+                    processingPayment.value = false;
+
+                    swalNotification('warning', 'Payment taking too long. Please check later or contact support.');
+                }
+            } catch (err) {
                 clearInterval(interval);
                 checkingStatus.value = false;
                 processingPayment.value = false;
-                swalNotification('error', 'Transaction failed. Please try again.');
+
+                const errorMessage = err.response?.data?.message || 'Error checking transaction status';
+                swalNotification('error', errorMessage);
             }
-        } catch (err) {
-            clearInterval(interval);
-            checkingStatus.value = false;
-            const errorMessage = err.response?.data?.message || 'Error checking transaction status';
-            swalNotification('error', errorMessage);
-        }
-    }, // 45 seconds
-        45000
-    );
+        }, pollingInterval);
+    }, pollingInterval); // Initial delay
 }
 
 // copy voucher code to clipboard

@@ -48,7 +48,7 @@ class PaymentController extends Controller
             // Make payment request
             $paymentData = PaymentService::processPayment($payload, $package, $voucher_code);
             return response()->json([
-                'message'     => 'A payment prompt has been sent to your phone. Please complete the payment by entering your pin.',
+                'message'     => 'A payment prompt has been sent to your phone. Please enter your pin to complete the payment and an SMS with a voucher will be sent to you in less than 2 minutes.',
                 'paymentData' => $paymentData,
             ]);
         } catch (\Throwable $th) {
