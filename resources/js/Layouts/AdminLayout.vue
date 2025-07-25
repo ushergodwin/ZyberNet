@@ -68,9 +68,6 @@
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenu">
                         <li>
-                            <form id="logout-form" method="POST" action="/logout" style="display:none;">
-                                <input type="hidden" name="_token" :value="csrfToken" />
-                            </form>
                             <button class="dropdown-item text-danger" @click="logout">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </button>
@@ -111,7 +108,7 @@ export default {
             this.$inertia.visit(route(routeName));
         },
         logout() {
-            document.getElementById('logout-form').submit();
+            this.$inertia.post(route('logout'));
         },
         toggleArrowIcon(id) {
             const icon = document.getElementById(id);
