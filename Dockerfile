@@ -4,32 +4,30 @@ FROM php:8.2-fpm
 RUN apt-get update && apt-get install -y \
     git curl zip unzip libzip-dev libonig-dev libxml2-dev \
     libpng-dev libjpeg-dev libfreetype6-dev libpq-dev \
-    nodejs npm gnupg2 ca-certificates lsb-release \
+    gnupg2 ca-certificates lsb-release sudo \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_mysql zip mbstring exif pcntl gd sockets
-
-# Optional: Install PostgreSQL support (already installing libpq-dev)
-RUN docker-php-ext-install pdo_pgsql
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql zip mbstring exif pcntl gd sockets
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Set working directory
-WORKDIR /var/www
+WORKDIR /var/www/superspotwifi
 
-# Copy app source
-COPY . .
+# Copy app source into the working directory
+COPY . /var/www/superspotwifi
 
 # Fix permissions
-RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage /var/www/bootstrap/cache
+RUN chown -R www-data:www-data /var/www/superspotwifi \
+    && chmod -R 755 /var/www/superspotwifi/storage /var/www/superspotwifi/bootstrap/cache
 
-# Install Node 20+ (for Inertia, Jetstream, Vite)
+# Install Node.js 20+
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs
+    && apt-get install -y nodejs \
+    && npm install -g npm@latest
 
 # Expose PHP-FPM port
 EXPOSE 9000
 
-# Use www-data user
+# Run as www-data user
 USER www-data
