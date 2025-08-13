@@ -12,11 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('transactions', function (Blueprint $table) {
-            $table->foreignId('package_id')
-                ->nullable()
-                ->constrained('voucher_packages')
-                ->onDelete('set null')
-                ->change(); // Make package_id nullable and set foreign key constraint
+            $table->unsignedBigInteger('package_id')->nullable()->change(); // Make package_id nullable
+            // apply foreign key constraint
+            $table->dropForeign(['package_id']); // Drop existing foreign key constraint
+            $table->foreign('package_id')
+                ->references('id')
+                ->on('voucher_packages')
+                ->onDelete('cascade'); // Add foreign key constraint with onDelete cascade
         });
     }
 
@@ -29,8 +31,7 @@ return new class extends Migration
             //
             $table->foreignId('package_id')
                 ->constrained('voucher_packages')
-                ->onDelete('cascade')
-                ->change(); // Revert package_id to non-nullable with foreign key constraint
+                ->onDelete('cascade'); // Revert package_id to non-nullable with foreign key constraint
         });
     }
 };
