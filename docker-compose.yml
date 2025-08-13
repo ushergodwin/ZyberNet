@@ -11,6 +11,7 @@ services:
         working_dir: /var/www/superspotwifi
         volumes:
             - ./:/var/www/superspotwifi
+            - /var/www/superspotwifi/node_modules
         expose:
             - "9000" # only expose internally; Caddy will route traffic
         networks:
