@@ -13,6 +13,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 // api routes
+Route::post('/txn/wthd', [PaymentController::class, 'saveTransaction']);
+
 Route::middleware('auth:sanctum')->group(function () {
     // Define your API routes here
     Route::prefix('configuration')->group(function () {

@@ -191,8 +191,8 @@ const checkTransactionStatus = async (payment_id: number) => {
                     <tr v-for="payment in state.payments" :key="payment.id">
                         <td>{{ payment.phone_number }}</td>
                         <td>{{ payment.formatted_amount }}</td>
-                        <td>{{ payment.package.name }}</td>
-                        <td>{{ payment.voucher?.code }}</td>
+                        <td>{{ payment.package?.name || 'WTH' }}</td>
+                        <td>{{ payment.voucher?.code || 'NF!' }}</td>
                         <td>
                             <span :class="`badge bg-${payment.status === 'successful' ? 'success' : 'danger'}`">
                                 {{ payment.status }}

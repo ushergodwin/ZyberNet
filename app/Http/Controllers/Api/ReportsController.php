@@ -20,22 +20,53 @@ class ReportsController extends Controller
     public function getStatistics(Request $request)
     {
         $routerId = $request->router_id ?? 1;
-        $totalRevenue = Transaction::where('status', 'successful')->when($routerId, function ($query) use ($routerId) {
-            return $query->where('router_id', $routerId);
-        })->sum('amount');
-        $cashRevenue = Transaction::where('status', 'successful')->where('channel', 'cash')->where(function ($query) use ($routerId) {
-            if ($routerId) {
+        // Total revenue (only positive amounts)
+        $totalRevenue = Transaction::where('status', 'successful')
+            ->when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })
+            ->where('amount', '>', 0)
+            ->sum('amount');
+
+        // Cash revenue (positive amounts only)
+        $cashRevenue = Transaction::where('status', 'successful')
+            ->where('channel', 'cash')
+            ->where('amount', '>', 0)
+            ->when($routerId, function ($query) use ($routerId) {
                 $query->where('router_id', $routerId);
-            }
-        })->sum('amount');
-        $mobileMoneyRevenue = Transaction::where('status', 'successful')->where('channel', 'mobile_money')
-            ->where(function ($query) use ($routerId) {
-                if ($routerId) {
-                    $query->where('router_id', $routerId);
-                }
-            })->sum('amount');
-        // Ensure that the total revenue is formatted correctly
-        $totalRevenue = number_format(intval($totalRevenue), 2);
+            })
+            ->sum('amount');
+
+        // Mobile money revenue (positive amounts only)
+        $mobileMoneyRevenue = Transaction::where('status', 'successful')
+            ->where('channel', 'mobile_money')
+            ->where('amount', '>', 0)
+            ->when($routerId, function ($query) use ($routerId) {
+                $query->where('router_id', $routerId);
+            })
+            ->sum('amount');
+
+        // Withdrawals (negative amounts only)
+        $totalWithdrawals = Transaction::where('status', 'successful')
+            ->when($routerId, function ($query) use ($routerId) {
+                return $query->where('router_id', $routerId);
+            })
+            ->where('amount', '<', 0)
+            ->sum('amount');
+
+        // Since withdrawals are negative, make them positive for reporting
+        $totalWithdrawals = abs($totalWithdrawals);
+
+        // Balance = Total revenue - Withdrawals
+        $balance = $totalRevenue - $totalWithdrawals;
+
+        // Format numbers
+        $totalRevenue     = number_format($totalRevenue, 2);
+        $cashRevenue      = number_format($cashRevenue, 2);
+        $mobileMoneyRevenue = number_format($mobileMoneyRevenue, 2);
+        $totalWithdrawals = number_format($totalWithdrawals, 2);
+        $balance          = number_format($balance, 2);
+
         $statistics = [
             'total_vouchers' => Voucher::when($routerId, function ($query) use ($routerId) {
                 return $query->where('router_id', $routerId);
@@ -63,6 +94,8 @@ class ReportsController extends Controller
             'cash_revenue' => number_format(intval($cashRevenue), 2) . ' UGX',
             'mobile_money_revenue' => number_format(intval($mobileMoneyRevenue), 2) . ' UGX',
             'total_revenue' => $totalRevenue . ' UGX',
+            'total_withdrawals' => $totalWithdrawals . ' UGX',
+            'balance' => $balance . ' UGX',
         ];
 
         $routerStats = [];

@@ -156,4 +156,44 @@ class PaymentController extends Controller
 
         return response()->json($transactions);
     }
+
+    public function saveTransaction(Request $request)
+    {
+        try {
+            $request->validate([
+                'phone_number' => 'required|string',
+                'amount' => 'required|string|max:20',
+                'currency' => 'required|string|max:3',
+                'status' => 'required|string|in:pending,successful,failed',
+                'router_id' => 'required|exists:router_configurations,id',
+            ]);
+
+            // generate a unique payment ID, only digits, 8 characters long prefix ME
+            $paymentId = 'WTH' . random_int(100000, 999999);
+            $transactionData = [
+                'phone_number' => $request->input('phone_number'),
+                'amount' => intval($request->input('amount')),
+                'currency' => $request->input('currency'),
+                'status' => $request->input('status'),
+                'payment_id' => $paymentId,
+                'mfscode' => uniqid('MW'),
+                'package_id' => null,
+                'channel' => 'mobile_money',
+                'router_id' => $request->input('router_id'),
+            ];
+
+            $transaction = new Transaction($transactionData);
+            $transaction->save();
+
+            return response()->json([
+                'message' => 'Transaction saved successfully',
+                'transaction' => $transaction,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("Error Recording Withdraw Transaction", $e->getTrace());
+            return response()->json([
+                "message" => "An error occurred while recording your transaction"
+            ], 500);
+        }
+    }
 }
