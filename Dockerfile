@@ -21,11 +21,11 @@ WORKDIR /var/www/superspotwifi
 
 # Copy package and composer files first for caching
 COPY package*.json ./
-COPY composer*.json ./
+COPY composer.json composer.lock ./
 
 # Install Node and PHP dependencies
 RUN npm install
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
 # Copy the full app source
 COPY . .
