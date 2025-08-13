@@ -4,9 +4,6 @@ hotspot.superspotwifi.net {
     encode gzip
     file_server
 
-    # Laravel routing
-    try_files {path} /index.php?{query}
-
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-Content-Type-Options "nosniff"

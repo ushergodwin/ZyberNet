@@ -9,6 +9,8 @@ services:
         container_name: superspotwifi-app
         restart: unless-stopped
         working_dir: /var/www/superspotwifi
+        volumes:
+            - ./:/var/www/superspotwifi
         expose:
             - "9000" # only expose internally; Caddy will route traffic
         networks:
@@ -22,6 +24,7 @@ services:
             - "80:80"
             - "443:443"
         volumes:
+            - ./:/var/www/superspotwifi
             - ./Caddyfile:/etc/caddy/Caddyfile
             - caddy_data:/data
             - caddy_config:/config
