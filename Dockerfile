@@ -32,6 +32,10 @@ RUN composer install --no-dev --no-scripts --no-interaction --no-progress
 # Copy the full app source (including artisan)
 COPY . .
 
+# Force PHP-FPM to listen on TCP 9000
+RUN sed -i 's/^listen = .*/listen = 0.0.0.0:9000/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/^;listen.allowed_clients = .*/listen.allowed_clients = 0.0.0.0/' /usr/local/etc/php-fpm.d/www.conf
+
 # Run Composer scripts now that artisan exists
 RUN composer dump-autoload --optimize
 
