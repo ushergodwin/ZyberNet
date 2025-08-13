@@ -190,10 +190,10 @@ class PaymentController extends Controller
                 'transaction' => $transaction,
             ]);
         } catch (\Throwable $e) {
-            Log::error("Error Recording Withdraw Transaction", $e->getTrace());
+            Log::error("Error Recording Withdraw Transaction" . $e->getMessage(), $e->getTrace());
             return response()->json([
-                "message" => "An error occurred while recording your transaction"
-            ], 500);
+                "message" => "An error occurred while recording your transaction: " .  $e->getMessage()
+            ], 202);
         }
     }
 }
