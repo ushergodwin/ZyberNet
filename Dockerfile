@@ -23,12 +23,22 @@ WORKDIR /var/www/superspotwifi
 COPY package*.json ./
 COPY composer.json composer.lock ./
 
-# Install Node and PHP dependencies
+# Install Node dependencies
 RUN npm install
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
-# Copy the full app source
+# Install PHP dependencies without running scripts yet
+RUN composer install --no-dev --no-scripts --no-interaction --no-progress
+
+# Copy the full app source (including artisan)
 COPY . .
+
+# Run Composer scripts now that artisan exists
+RUN composer dump-autoload --optimize
+
+# Optional: clear caches to ensure clean build
+RUN php artisan config:clear
+RUN php artisan route:clear
+RUN php artisan view:clear
 
 # Build frontend
 RUN npm run build
