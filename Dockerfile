@@ -11,23 +11,33 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set working directory
-WORKDIR /var/www/superspotwifi
-
-# Copy app source into the working directory
-COPY . /var/www/superspotwifi
-
-# Fix permissions
-RUN chown -R www-data:www-data /var/www/superspotwifi \
-    && chmod -R 755 /var/www/superspotwifi/storage /var/www/superspotwifi/bootstrap/cache
-
 # Install Node.js 20+
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest
 
-# Expose PHP-FPM port
-EXPOSE 9000
+# Set working directory
+WORKDIR /var/www/superspotwifi
 
-# Run as www-data user
+# Copy package and composer files first for caching
+COPY package*.json ./
+COPY composer*.json ./
+
+# Install Node and PHP dependencies
+RUN npm install
+RUN composer install --no-dev --optimize-autoloader
+
+# Copy the full app source
+COPY . .
+
+# Build frontend
+RUN npm run build
+
+# Set Laravel permissions
+RUN chown -R www-data:www-data /var/www/superspotwifi \
+    && chmod -R 755 /var/www/superspotwifi/storage /var/www/superspotwifi/bootstrap/cache
+
+# Switch to www-data
 USER www-data
+
+EXPOSE 9000
