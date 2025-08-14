@@ -28,9 +28,9 @@ jobs:
             git pull origin $BRANCH
             docker compose up -d
             
-            # 🔹 Fix Laravel & Node/Vite permissions before running artisan/npm
+            # 🔹 Fix Laravel, Node, and Vite permissions before running artisan/npm
             docker exec -u root superspotwifi-app sh -c '
-              for dir in storage bootstrap/cache node_modules .vite-temp; do
+              for dir in storage bootstrap/cache node_modules .vite-temp public/build; do
                 if [ -d "$dir" ]; then
                   chown -R www-data:www-data "$dir"
                   chmod -R 775 "$dir"
