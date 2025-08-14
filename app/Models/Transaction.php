@@ -53,4 +53,9 @@ class Transaction extends Model
     {
         return $this->belongsTo(RouterConfiguration::class, 'router_id');
     }
+
+    public function voucher()
+    {
+        return $this->hasOne(Voucher::class, 'transaction_id');
+    }
 }
