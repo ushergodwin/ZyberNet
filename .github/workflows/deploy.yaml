@@ -23,10 +23,21 @@ jobs:
           DEPLOY_PATH: /var/www/superspotwifi
           BRANCH: main
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
             cd $DEPLOY_PATH
             git pull origin $BRANCH
             docker compose up -d
+            
+            # 🔹 Fix Laravel & Node/Vite permissions before running artisan/npm
+            docker exec -u root superspotwifi-app sh -c '
+              for dir in storage bootstrap/cache node_modules .vite-temp; do
+                if [ -d "$dir" ]; then
+                  chown -R www-data:www-data "$dir"
+                  chmod -R 775 "$dir"
+                fi
+              done
+            '
+
             docker exec superspotwifi-app php artisan migrate --force
             docker exec superspotwifi-app npm run build
           EOF
