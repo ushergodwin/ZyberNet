@@ -89,8 +89,8 @@ const submitForm = () => {
     const data = {
         name: state.form.name,
         email: state.form.email,
-        password: state.isEdit ? undefined : state.form.password,
-        confirmPassword: state.isEdit ? undefined : state.form.confirmPassword
+        password: state.form.password,
+        confirmPassword: state.form.confirmPassword
     };
 
     if (!state.isEdit && (state.form.password !== state.form.confirmPassword)) {
@@ -104,10 +104,15 @@ const submitForm = () => {
     showLoader();
     axios[method](url, data)
         .then(response => {
-            hideLoader();
-            swalNotification('success', state.isEdit ? 'User updated successfully' : 'User created successfully');
-            state.showModal = false;
-            loadUsers(1);
+            if (response.status === 200) {
+                hideLoader();
+                swalNotification('success', state.isEdit ? 'User updated successfully' : 'User created successfully');
+                state.showModal = false;
+                loadUsers(1);
+            } else {
+                hideLoader();
+                swalNotification('error', response.data.error || 'Failed to save user');
+            }
         })
         .catch(error => {
             hideLoader();

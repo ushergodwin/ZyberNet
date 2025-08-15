@@ -116,7 +116,15 @@ class AuthController extends Controller
         $user->name = $request->input('name');
         $user->email = $request->input('email');
         if ($request->filled('password')) {
-            $user->password = Hash::make($request->input('password'));
+            // get the old password
+            $oldPassword = $user->password;
+            // Hash the new password
+            $newPassword = Hash::make($request->input('password'));
+            // Check if the new password is different from the old password
+            if (Hash::check($request->input('password'), $oldPassword)) {
+                return response()->json(['error' => 'New password cannot be the same as the old password'], 422);
+            }
+            $user->password = $newPassword;
         }
         $user->save();
         // Regenerate token if email changed
