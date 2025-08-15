@@ -169,7 +169,7 @@ class PaymentController extends Controller
             ]);
 
             // generate a unique payment ID, only digits, 8 characters long prefix ME
-            $paymentId = 'WTH' . random_int(100000, 999999);
+            $paymentId = '82' . random_int(100000, 999999);
             $transactionData = [
                 'phone_number' => $request->input('phone_number'),
                 'amount' => intval($request->input('amount')),

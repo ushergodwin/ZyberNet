@@ -20,89 +20,45 @@ class ReportsController extends Controller
     public function getStatistics(Request $request)
     {
         $routerId = $request->router_id ?? 1;
-        // Total revenue (only positive amounts)
-        $totalRevenue = Transaction::where('status', 'successful')
-            ->when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })
-            ->where('amount', '>', 0)
-            ->sum('amount');
 
-        // Cash revenue (positive amounts only)
-        $cashRevenue = Transaction::where('status', 'successful')
-            ->where('channel', 'cash')
-            ->where('amount', '>', 0)
-            ->when($routerId, function ($query) use ($routerId) {
-                $query->where('router_id', $routerId);
-            })
-            ->sum('amount');
+        // Base successful filter (reuse via clones)
+        $base = Transaction::where('status', 'successful')
+            ->when($routerId, fn($q) => $q->where('router_id', $routerId));
 
-        // Mobile money revenue (positive amounts only)
-        $mobileMoneyRevenue = Transaction::where('status', 'successful')
-            ->where('channel', 'mobile_money')
-            ->where('amount', '>', 0)
-            ->when($routerId, function ($query) use ($routerId) {
-                $query->where('router_id', $routerId);
-            })
-            ->sum('amount');
+        // Revenues (positives only)
+        $totalRevenue        = (clone $base)->where('amount', '>', 0)->sum('amount');
+        $cashRevenue         = (clone $base)->where('channel', 'cash')->where('amount', '>', 0)->sum('amount');
+        $mobileMoneyRevenue  = (clone $base)->where('channel', 'mobile_money')->where('amount', '>', 0)->sum('amount');
 
-        // Withdrawals (negative amounts only)
-        $totalWithdrawals = Transaction::where('status', 'successful')
-            ->when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })
-            ->where('amount', '<', 0)
-            ->sum('amount');
+        // Withdrawals (negatives only) and balance
+        $totalWithdrawalsRaw = (clone $base)->where('amount', '<', 0)->sum('amount');
+        $totalWithdrawals    = abs($totalWithdrawalsRaw);
+        $balance             = $totalRevenue - $totalWithdrawals;
 
-        // Since withdrawals are negative, make them positive for reporting
-        $totalWithdrawals = abs($totalWithdrawals);
-
-        // Balance = Total revenue - Withdrawals
-        $balance = $totalRevenue - $totalWithdrawals;
-
-        // Format numbers
-        $totalRevenue     = number_format($totalRevenue, 2);
-        $cashRevenue      = number_format($cashRevenue, 2);
-        $mobileMoneyRevenue = number_format($mobileMoneyRevenue, 2);
-        $totalWithdrawals = number_format($totalWithdrawals, 2);
-        $balance          = number_format($balance, 2);
+        // Helper to format once (force float, set separators)
+        $fmt = fn($n) => number_format((float)$n, 2, '.', ',');
 
         $statistics = [
-            'total_vouchers' => Voucher::when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })->count(),
-            'expired_vouchers' => Voucher::where('expires_at', '<', now())->when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })->count(),
-            'total_packages' => VoucherPackage::when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })->count(),
-            'active_routers' => RouterConfiguration::when($routerId, function ($query) use ($routerId) {
-                return $query->where('id', $routerId);
-            })->count(),
-            'transactions' => Transaction::when($routerId, function ($query) use ($routerId) {
-                return $query->where('router_id', $routerId);
-            })->count(),
-            'successful_transactions' => Transaction::where('status', 'successful')
-                ->when($routerId, function ($query) use ($routerId) {
-                    return $query->where('router_id', $routerId);
-                })->count(),
-            'failed_transactions' => Transaction::where('status', 'failed')
-                ->when($routerId, function ($query) use ($routerId) {
-                    return $query->where('router_id', $routerId);
-                })->count(),
-            'cash_revenue' => number_format(intval($cashRevenue), 2) . ' UGX',
-            'mobile_money_revenue' => number_format(intval($mobileMoneyRevenue), 2) . ' UGX',
-            'total_revenue' => $totalRevenue . ' UGX',
-            'total_withdrawals' => $totalWithdrawals . ' UGX',
-            'balance' => $balance . ' UGX',
+            'total_vouchers' => Voucher::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'expired_vouchers' => Voucher::where('expires_at', '<', now())->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'total_packages' => VoucherPackage::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'active_routers' => RouterConfiguration::when($routerId, fn($q) => $q->where('id', $routerId))->count(),
+            'transactions' => Transaction::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'successful_transactions' => Transaction::where('status', 'successful')->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'failed_transactions' => Transaction::where('status', 'failed')->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+
+            // Format ONCE here; no intval anywhere
+            'cash_revenue'          => $fmt($cashRevenue) . ' UGX',
+            'mobile_money_revenue'  => $fmt($mobileMoneyRevenue) . ' UGX',
+            'total_revenue'         => $fmt($totalRevenue) . ' UGX',
+            'total_withdrawals'     => $fmt($totalWithdrawals) . ' UGX',
+            'balance'               => $fmt($balance) . ' UGX',
         ];
 
         $routerStats = [];
-
         if ($routerId) {
             $router = RouterConfiguration::find($routerId);
-            if ($router && config('app.env') != 'local') {
+            if ($router && config('app.env') !== 'local') {
                 try {
                     $mikrotik = new MikroTikService($router);
                     $routerStats = $mikrotik->getUserStatistics();
@@ -112,9 +68,6 @@ class ReportsController extends Controller
             }
         }
 
-        $statistics = array_merge($routerStats, $statistics);
-
-
-        return response()->json($statistics);
+        return response()->json(array_merge($routerStats, $statistics));
     }
 }
