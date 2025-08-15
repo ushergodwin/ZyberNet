@@ -39,9 +39,7 @@ jobs:
 
             # Install Composer dependencies if vendor folder missing
             docker exec -u root superspotwifi-app sh -c '
-              if [ ! -d /var/www/superspotwifi/vendor ]; then
-                composer install --no-interaction --optimize-autoloader
-              fi
+              composer install --no-interaction --optimize-autoloader
             '
 
             # Run Laravel migrations
