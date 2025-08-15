@@ -387,7 +387,7 @@ onUnmounted(() => {
                                 <input type="email" id="email" v-model="state.form.email" class="form-control"
                                     autocomplete="off" required>
                             </div>
-                            <div class="mb-3" v-if="!state.isEdit">
+                            <div class="mb-3">
                                 <label for="password" class="form-label">Password</label>
                                 <input type="password" id="password" v-model="state.form.password" class="form-control"
                                     autocomplete="off" required>
@@ -401,7 +401,7 @@ onUnmounted(() => {
 
                                 </div>
                             </div>
-                            <div class="mb-3" v-if="!state.isEdit">
+                            <div class="mb-3">
                                 <label for="confirmPassword" class="form-label">Confirm Password</label>
                                 <input type="password" id="confirmPassword" v-model="state.form.confirmPassword"
                                     class="form-control" autocomplete="off" required>
