@@ -19,16 +19,15 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy via SSH
-        env:
-          DEPLOY_PATH: /var/www/superspotwifi
-          BRANCH: main
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
-            cd $DEPLOY_PATH
-            git pull origin $BRANCH
-            docker compose up -d
+            # Pull latest code safely using absolute path
+            git -C /var/www/superspotwifi pull origin main
             
-            # 🔹 Fix Laravel, Node, and Vite permissions before running artisan/npm
+            # Start/update Docker containers
+            docker compose -f /var/www/superspotwifi/docker-compose.yml up -d
+
+            # Fix Laravel, Node, and Vite permissions
             docker exec -u root superspotwifi-app sh -c '
               for dir in storage bootstrap/cache node_modules .vite-temp public/build; do
                 if [ -d "$dir" ]; then
@@ -38,6 +37,16 @@ jobs:
               done
             '
 
+            # Install Composer dependencies if vendor folder missing
+            docker exec -u root superspotwifi-app sh -c '
+              if [ ! -d /var/www/superspotwifi/vendor ]; then
+                composer install --no-interaction --optimize-autoloader
+              fi
+            '
+
+            # Run Laravel migrations
             docker exec superspotwifi-app php artisan migrate --force
+
+            # Build front-end assets
             docker exec superspotwifi-app npm run build
           EOF
