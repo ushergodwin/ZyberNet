@@ -47,14 +47,13 @@ class VoucherService
     }
 
     // delete voucher from router and database
-    public function deleteVoucher($voucherCode, RouterConfiguration $router)
+    public function deleteVoucher(Voucher $voucher)
     {
-        $voucher = Voucher::where('code', $voucherCode)->firstOrFail();
         DB::beginTransaction();
 
         try {
             // 1. Delete hotspot user from router
-            $mikrotik = new MikroTikService($router);
+            $mikrotik = new MikroTikService($voucher->router);
             $mikrotik->deleteHotspotUser($voucher->code);
 
             // 2. Delete voucher from database

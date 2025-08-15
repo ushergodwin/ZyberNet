@@ -201,8 +201,11 @@ class VoucherController extends Controller
             if (!$voucher) {
                 return response()->json(['message' => 'Voucher not found'], 202);
             }
+            if (!$voucher->router) {
+                return response()->json(['message' => 'Router configuration not found for this voucher'], 404);
+            }
             $voucherService = new VoucherService();
-            $voucherService->deleteVoucher($code, $voucher->router);
+            $voucherService->deleteVoucher($voucher);
             return response()->json(['message' => 'Voucher deleted from router and database successfully']);
         } catch (\Throwable $e) {
             Log::error('Failed to delete voucher: ' . $e->getMessage(), [

@@ -306,7 +306,17 @@ class MikroTikService
             $result = $this->client->query($query)->read();
 
             if (empty($result)) {
-                throw new \Exception("User {$username} not found on the router.");
+                // log if user not found and return false
+                RouterLog::create([
+                    'voucher_id' => $username,
+                    'action' => 'delete_hotspot_user',
+                    'success' => false,
+                    'message' => "User {$username} not found on router",
+                    'is_manual' => false,
+                    'router_name' => $this->router->name ?? 'Unknown Router',
+                    'router_id' => $this->router->id ?? null,
+                ]);
+                return true; // User not found, nothing to delete
             }
 
             $userId = $result[0]['.id'];

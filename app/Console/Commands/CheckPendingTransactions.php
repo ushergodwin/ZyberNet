@@ -18,6 +18,8 @@ class CheckPendingTransactions extends Command
         $this->info('Checking pending transactions...');
 
         $transactions = Transaction::whereIn('status', ['new', 'instructions_sent', 'pending'])
+            // amount not negative
+            ->where('amount', '>', 0)
             ->with('package')
             ->get();
 
