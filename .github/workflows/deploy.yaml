@@ -43,7 +43,7 @@ jobs:
             '
 
             # Run Laravel migrations
-            docker exec -u root superspotwifi-app php artisan migrate --force --seed
+            docker exec -u root superspotwifi-app php artisan migrate --force
 
             # Build front-end assets
             docker exec -u root superspotwifi-app npm run build

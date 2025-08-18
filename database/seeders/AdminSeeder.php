@@ -27,18 +27,7 @@ class AdminSeeder extends Seeder
             ]
         );
 
-        // Create or update the Ursher Godwin user
-        $ursher = User::updateOrCreate(
-            ['email' => 'urshergodwin@superspotwifi.net'],
-            [
-                'name' => 'Ursher Godwin',
-                'password' => Hash::make('.WiFi#321@M'),
-                'email_verified_at' => now(),
-            ]
-        );
-
         // Assign the admin role to both users
         $admin->syncRoles([$adminRole]);
-        $ursher->syncRoles([$adminRole]);
     }
 }

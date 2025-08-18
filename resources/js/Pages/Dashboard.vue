@@ -33,8 +33,14 @@ const getDashboardStats = async () => {
 // load routers
 const loadRouters = async () => {
     try {
+        state.isLoading = true;
         const response = await axios.get('/api/configuration/routers?no_paging=true');
         state.routers = response.data;
+        // Set the first router as selected if none is selected
+        if (!state.selectedRouterId && state.routers.length > 0) {
+            state.selectedRouterId = state.routers[0].id;
+        }
+        state.isLoading = false;
     } catch (error) {
         console.error('Failed to load routers:', error);
     }
@@ -67,7 +73,7 @@ const capitalize = (str) => {
 </script>
 
 <template>
-    <section class="container-fluid">
+    <section class="container-fluid" v-if="state.isLoading">
 
         <Head title="Dashboard" />
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -108,6 +114,16 @@ const capitalize = (str) => {
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </section>
+    <section class="container-fluid" v-else>
+
+        <Head title="Dashboard" />
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3">Dashboard</h1>
+        </div>
+        <div class="alert alert-info">
+            <span class="spinner-border spinner-border-sm text-primary me-2"></span> Loading dashboard stats...
         </div>
     </section>
 </template>
