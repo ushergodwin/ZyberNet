@@ -73,7 +73,7 @@ const capitalize = (str) => {
 </script>
 
 <template>
-    <section class="container-fluid" v-if="state.isLoading">
+    <section class="container-fluid" v-if="!state.isLoading">
 
         <Head title="Dashboard" />
         <div class="d-flex justify-content-between align-items-center mb-4">
