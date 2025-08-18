@@ -27,8 +27,7 @@ class Transaction extends Model
     ];
 
     protected $appends = [
-        'formatted_amount',
-        'voucher'
+        'formatted_amount'
     ];
     public function package()
     {
@@ -38,15 +37,6 @@ class Transaction extends Model
     public function getFormattedAmountAttribute()
     {
         return number_format($this->amount, 2) . ' ' . $this->currency;
-    }
-
-    public function getVoucherAttribute()
-    {
-        $voucher = Voucher::where('transaction_id', $this->id)->first();
-        if ($voucher) {
-            return $voucher;
-        }
-        return null;
     }
 
     public function router()

@@ -32,7 +32,9 @@ class CheckPendingTransactions extends Command
 
         // Transactions that are successful but do not have a voucher
         $transactionsWithoutVoucher = Transaction::where('status', 'successful')
-            ->whereDoesntHave('voucher') // Now works because voucher is a real relationship
+            ->with(['package', 'voucher'])
+            ->whereDoesntHave('voucher')
+            ->where('amount', '>', 0)
             ->get();
 
         if ($transactionsWithoutVoucher->isNotEmpty()) {

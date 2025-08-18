@@ -71,7 +71,7 @@ class PaymentController extends Controller
             $voucher_code = request()->input('voucher_code', '');
             $generate_voucher = request()->input('generate_voucher', true);
             // Check if transaction exists
-            $transaction = Transaction::where('payment_id', $id)->with('package')->first();
+            $transaction = Transaction::where('payment_id', $id)->with(['package', 'voucher'])->first();
             if (!$transaction) {
                 return response()->json(['message' => 'Transaction not found'], 202);
             }
@@ -124,6 +124,7 @@ class PaymentController extends Controller
             return response()->json(['message' => 'You are not authorized to view transactions. Please contact system admin.'], 401);
         }
         $transactions = Transaction::with('package')
+            ->with('voucher')
             ->when($request->has('router_id'), function ($query) use ($request) {
                 $routerId = $request->input('router_id');
                 $searchTerm = $request->input('search');
