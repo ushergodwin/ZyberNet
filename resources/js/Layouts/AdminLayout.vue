@@ -108,7 +108,7 @@ export default {
         this.initCollapses();
         this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         const roles = this.$page.props.auth?.user?.roles?.map(role => role.name) || [];
-        this.isUserAdmin = hasPermission('Super Admin', roles) || hasPermission('Admin', roles);
+        this.isUserAdmin = hasPermission('Super Admin', roles) || hasPermission('Admin', roles) || has_permission('view_settings', this.currentUser?.permissions_list);
     },
     methods: {
         goTo(routeName) {
