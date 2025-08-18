@@ -10,23 +10,25 @@
             <a class="nav-link" href="#" @click="goTo('dashboard')" :class="{ active: isActive(['dashboard']) }">
                 <i class="fas fa-tachometer-alt me-2"></i> Dashboard
             </a>
-            <a class="nav-link" href="#" @click="goTo('vouchers.list')"
-                :class="{ active: isActive(['vouchers.list']) }">
+            <a class="nav-link" href="#" @click="goTo('vouchers.list')" :class="{ active: isActive(['vouchers.list']) }"
+                v-if="hasPermission('view_vouchers', currentUser?.permissions_list)">
                 <i class="fas fa-ticket me-2"></i> Vouchers
             </a>
             <a class="nav-link" href="#" @click="goTo('vouchers.index')"
-                :class="{ active: isActive(['vouchers.index']) }">
+                :class="{ active: isActive(['vouchers.index']) }"
+                v-if="hasPermission('view_data_plans', currentUser?.permissions_list)">
                 <i class="fas fa-mobile-retro me-2"></i> Data Plans
             </a>
 
             <!-- Payments -->
             <a class="nav-link" href="#" @click="goTo('payments.index')"
-                :class="{ active: isActive(['payments.index']) }">
+                :class="{ active: isActive(['payments.index']) }"
+                v-if="hasPermission('view_payments', currentUser?.permissions_list)">
                 <i class="fas fa-money-check-dollar me-2"></i> Payments
             </a>
 
             <!-- Router Collapse -->
-            <div>
+            <div v-if="hasPermission('view_router', currentUser?.permissions_list)">
                 <button class="btn btn-toggle w-100 text-start" data-bs-toggle="collapse"
                     data-bs-target="#router-collapse" aria-expanded="false"
                     @click="toggleArrowIcon('router-arrow-icon')">
@@ -38,14 +40,15 @@
                         <li><a href="#" class="nav-link" :class="{ active: isActive(['routers.index']) }"
                                 @click="goTo('routers.index')">Configuration</a></li>
                         <li><a href="#" class="nav-link" :class="{ active: isActive(['routers.logs']) }"
-                                @click="goTo('routers.logs')">Logs</a></li>
+                                @click="goTo('routers.logs')"
+                                v-if="hasPermission('view_router_logs', currentUser?.permissions_list)">Logs</a></li>
                     </ul>
                 </div>
             </div>
 
             <!-- Users -->
             <a class="nav-link" href="#" @click="goTo('settings.index')"
-                :class="{ active: isActive(['settings.index']) }">
+                :class="{ active: isActive(['settings.index']) }" v-if="isUserAdmin">
                 <i class="fas fa-cog me-2"></i> Settings
             </a>
         </nav>
@@ -86,6 +89,7 @@
 
 <script>
 import emitter from '@/eventBus';
+import { hasPermission } from '@/mixins/helpers.mixin';
 import { debounce } from 'lodash';
 
 export default {
@@ -96,12 +100,15 @@ export default {
             currentRoute: this.$page.props.route || null,
             searchQuery: '',
             csrfToken: null,
+            isUserAdmin: false
         };
     },
     mixins: [emitter],
     mounted() {
         this.initCollapses();
         this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const roles = this.$page.props.auth?.user?.roles?.map(role => role.name) || [];
+        this.isUserAdmin = hasPermission('Super Admin', roles) || hasPermission('Admin', roles);
     },
     methods: {
         goTo(routeName) {
@@ -118,6 +125,11 @@ export default {
                 icon.classList.toggle('rotate');
             }
         },
+
+        hasPermission(permission, permissionsList) {
+            return hasPermission(permission, permissionsList);
+        },
+
         isActive(routeNames = []) {
             const currentUrl = window.location.href;
             return routeNames.some(name => currentUrl.includes(route(name)));

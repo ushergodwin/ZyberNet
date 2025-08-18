@@ -68,7 +68,6 @@ class PaymentController extends Controller
     public function checkTransactionStatus($id)
     {
         try {
-
             $voucher_code = request()->input('voucher_code', '');
             $generate_voucher = request()->input('generate_voucher', true);
             // Check if transaction exists
@@ -120,6 +119,10 @@ class PaymentController extends Controller
 
     public function getTransactions(Request $request)
     {
+        // view_payments 
+        if (!hasPermission('view_payments')) {
+            return response()->json(['message' => 'You are not authorized to view transactions. Please contact system admin.'], 401);
+        }
         $transactions = Transaction::with('package')
             ->when($request->has('router_id'), function ($query) use ($request) {
                 $routerId = $request->input('router_id');

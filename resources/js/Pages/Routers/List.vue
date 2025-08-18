@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted } from "vue";
 import { Head, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { showLoader, hideLoader, swalNotification, swalConfirm } from "@/mixins/helpers.mixin.js";
+import { showLoader, hideLoader, swalNotification, swalConfirm, hasPermission } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 
 defineOptions({ layout: AdminLayout });
@@ -41,6 +41,9 @@ const form = reactive<RouterConfig>({
     password: "",
 });
 
+const state = reactive({
+    currentUser: null,
+});
 /**
  * Fetch routers with pagination (for infinite scroll)
  */
@@ -58,7 +61,7 @@ const fetchRouters = () => {
             loading.value = false;
         })
         .catch((err: any) => {
-            swalNotification("error", "Failed to load routers.");
+            swalNotification("error", err.response.data.message || "Failed to load routers.");
             loading.value = false;
         });
 };
@@ -176,6 +179,7 @@ onMounted(() => {
     if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
+    state.currentUser = usePage().props.auth.user;
     fetchRouters();
 });
 </script>
@@ -186,7 +190,8 @@ onMounted(() => {
         <Head title="Router Configuration" />
         <div class="d-flex justify-content-between mt-2 py-1">
             <h4 class="fw-bold">Router Configurations</h4>
-            <button class="btn btn-primary btn-sm" @click="openModal(false)">
+            <button class="btn btn-primary btn-sm" @click="openModal(false)"
+                v-if="hasPermission('create_router', state.currentUser?.permissions_list)">
                 <i class="fas fa-plus me-2"></i> Add Router
             </button>
         </div>
@@ -209,14 +214,17 @@ onMounted(() => {
                         <td>{{ router.username }}</td>
                         <td>
                             <div class="d-flex gap-3">
-                                <a href="#" class="text-primary" @click="openModal(true, router)">
+                                <a href="#" class="text-primary" @click="openModal(true, router)"
+                                    v-if="hasPermission('edit_router', state.currentUser?.permissions_list)">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="#" class="text-danger" @click="deleteRouter(router)">
+                                <a href="#" class="text-danger" @click="deleteRouter(router)"
+                                    v-if="hasPermission('delete_router', state.currentUser?.permissions_list)">
                                     <i class="fas fa-trash"></i>
                                 </a>
                                 <!-- test connection-->
-                                <a href="#" class="text-success" @click="testRouterConnection(router.id)">
+                                <a href="#" class="text-success" @click="testRouterConnection(router.id)"
+                                    v-if="hasPermission('test_connection', state.currentUser?.permissions_list)">
                                     <i class="fas fa-plug"></i>
                                 </a>
                             </div>

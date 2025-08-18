@@ -101,6 +101,7 @@ class AuthController extends Controller
     // update user profile
     public function updateUser(Request $request, $id)
     {
+
         $user = User::where('id', $id)->firstOrFail();
 
         $validator = Validator::make($request->all(), [

@@ -7,21 +7,7 @@ defineOptions({ layout: AdminLayout });
 const state = reactive({
     user: usePage().props.auth.user,
     notifications: usePage().props.notifications || [],
-    stats: {
-        total_revenue: 0,
-        inactive_users: 0,
-        online_users: 0,
-        users_created_today: 0,
-        most_used_profile: "Unknown",
-        top_profiles_by_user_count: null,
-        total_vouchers: 0,
-        expired_vouchers: 0,
-        total_packages: 0,
-        active_routers: 0,
-        transactions: 0,
-        successful_transactions: 0,
-        failed_transactions: 0,
-    },
+    stats: {},
     isLoading: false,
     routers: [],
     selectedRouter: null,
@@ -37,7 +23,7 @@ const getDashboardStats = async () => {
         }
         state.isLoading = true;
         const response = await axios.get(url);
-        Object.assign(state.stats, response.data);
+        state.stats = response.data;
         state.isLoading = false;
     } catch (error) {
         console.error('Failed to fetch dashboard stats:', error);

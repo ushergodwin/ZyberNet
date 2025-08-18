@@ -55,6 +55,7 @@ class User extends Authenticatable
      */
     protected $appends = [
         'profile_photo_url',
+        'permissions_list',
     ];
 
     /**
@@ -68,5 +69,11 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+
+    public function getPermissionsListAttribute()
+    {
+        return $this->getAllPermissions()->pluck('name');
     }
 }

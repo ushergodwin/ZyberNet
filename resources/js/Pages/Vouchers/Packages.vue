@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted } from "vue";
 import { Head, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { showLoader, hideLoader, swalNotification, swalConfirm } from "@/mixins/helpers.mixin.js";
+import { showLoader, hideLoader, swalNotification, swalConfirm, hasPermission } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 defineOptions({ layout: AdminLayout });
 import { watch } from "vue";
@@ -28,6 +28,7 @@ const state = reactive({
     },
     routers: [],
     selectedRouterId: 1, // For router selection
+    currentUser: null,
 });
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
@@ -35,6 +36,7 @@ onMounted(() => {
     if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
+    state.currentUser = usePage().props.auth.user;
     loadVoucherPackages();
     getRouters();
 });
@@ -257,7 +259,8 @@ watch(() => state.selectedRouterId, (newRouterId) => {
                             {{ router.name }}
                         </option>
                     </select>
-                    <button class="btn btn-primary" @click="openModal(false)">
+                    <button class="btn btn-primary" @click="openModal(false)"
+                        v-if="hasPermission('create_data_plans', state.currentUser?.permissions_list)">
                         <i class="fas fa-plus"></i> Add Data Plan
                     </button>
                 </section>
@@ -291,14 +294,17 @@ watch(() => state.selectedRouterId, (newRouterId) => {
                         <td>{{ pkg.limit_bytes_total ? pkg.formatted_limit_bytes_total : 'Unlimited' }}</td>
                         <td>
                             <div class="d-flex gap-3">
-                                <a href="#" class="text-primary" @click="openModal(true, pkg)">
+                                <a href="#" class="text-primary" @click="openModal(true, pkg)"
+                                    v-if="hasPermission('edit_data_plans', state.currentUser?.permissions_list)">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="#" class="text-danger" @click="deletePackage(pkg.id)">
+                                <a href="#" class="text-danger" @click="deletePackage(pkg.id)"
+                                    v-if="hasPermission('delete_data_plans', state.currentUser?.permissions_list)">
                                     <i class="fas fa-trash-alt"></i>
                                 </a>
                                 <!-- Deactivate package-->
-                                <div class="form-check form-switch">
+                                <div class="form-check form-switch"
+                                    v-if="hasPermission('edit_data_plans', state.currentUser?.permissions_list)">
                                     <input class="form-check-input" type="checkbox"
                                         :id="`flexSwitchCheckChecked-${pkg.id}`" :checked="pkg.is_active"
                                         @change="e => activateOrDeactivatePackage(e, pkg.id)">

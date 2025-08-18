@@ -19,7 +19,11 @@ class ConfigurationController extends Controller
     // get Router Configurations
     public function getRouters(Request $request)
     {
-        $configurations = RouterConfiguration::when($request->has('search'), function ($query) use ($request) {
+        $routerIds = getUserRouterIds();
+        if (empty($routerIds)) {
+            return response()->json(['message' => 'No router has been assigned to you for management. Please contact the administrator'], 401);
+        }
+        $configurations = RouterConfiguration::whereIn('id', $routerIds)->when($request->has('search'), function ($query) use ($request) {
             $query->where('name', 'like', '%' . $request->search . '%')
                 ->orWhere('host', 'like', '%' . $request->search . '%');
         });
@@ -35,6 +39,9 @@ class ConfigurationController extends Controller
     // save Router Configuration
     public function createRouter(Request $request)
     {
+        if (!hasPermission('create_router')) {
+            return response()->json(['message' => 'You are not authorized to create routers. Please contact the administrator'], 401);
+        }
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'host' => 'required|string|max:60',
@@ -51,6 +58,10 @@ class ConfigurationController extends Controller
             'password' => $validated['password'] ? encrypt($validated['password']) : encrypt(''),
         ];
         $configuration = RouterConfiguration::create($data);
+
+        // create router permission
+        createRouterPermission($configuration);
+
         return response()->json([
             'message' => 'Router Configuration saved successfully',
             'configuration' => $configuration,
@@ -60,6 +71,9 @@ class ConfigurationController extends Controller
     // update Router Configuration
     public function updateRouter(Request $request, $id)
     {
+        if (!hasPermission('edit_router')) {
+            return response()->json(['message' => 'You are not authorized to update router configurations. Please contact the administrator'], 401);
+        }
         $configuration = RouterConfiguration::findOrFail($id);
 
         $validated = $request->validate([
@@ -82,6 +96,9 @@ class ConfigurationController extends Controller
     // delete Router Configuration
     public function deleteRouter($id)
     {
+        if (!hasPermission('delete_router')) {
+            return response()->json(['message' => 'You are not authorized to delete a router. Please contact the administrator'], 401);
+        }
         $configuration = RouterConfiguration::findOrFail($id);
         $configuration->delete();
         return response()->json([
@@ -115,6 +132,9 @@ class ConfigurationController extends Controller
     // save Voucher Package
     public function createVoucherPackage(Request $request)
     {
+        if (!hasPermission('create_data_plans')) {
+            return response()->json(['message' => 'You are not authorized to perform this action. Please contact the administrator'], 401);
+        }
         $validated = $request->validate([
             'name'  => 'required|string|max:100',
             'price' => 'required|numeric',
@@ -166,6 +186,9 @@ class ConfigurationController extends Controller
     //getVoucherPackage
     public function getVoucherPackage($id)
     {
+        if (!hasPermission('view_data_plans')) {
+            return response()->json(['message' => 'You are not authorized to perform this action. Please contact the administrator'], 401);
+        }
         $package = VoucherPackage::findOrFail($id);
         return response()->json($package);
     }
@@ -173,6 +196,9 @@ class ConfigurationController extends Controller
     // update Voucher Package
     public function updateVoucherPackage(Request $request, $id)
     {
+        if (!hasPermission('edit_data_plans')) {
+            return response()->json(['message' => 'You are not authorized to perform this action. Please contact the administrator'], 401);
+        }
         $package = VoucherPackage::with('router')->findOrFail($id);
 
         $validated = $request->validate([
@@ -222,7 +248,9 @@ class ConfigurationController extends Controller
     // delete Voucher Package
     public function deleteVoucherPackage($id)
     {
-
+        if (!hasPermission('delete_data_plans')) {
+            return response()->json(['message' => 'You are not authorized to delete data plans. Please contact the administrator'], 401);
+        }
         $package = VoucherPackage::findOrFail($id);
         $package->delete();
         return response()->json([
@@ -234,6 +262,9 @@ class ConfigurationController extends Controller
     public function toggleVoucherPackage($id)
     {
         try {
+            if (!hasPermission('edit_data_plans')) {
+                return response()->json(['message' => 'You are not authorized to turn on/off data plans. Please contact the administrator'], 401);
+            }
             $package = VoucherPackage::findOrFail($id);
             $package->is_active = !$package->is_active; // Toggle the is_active status
             $message = $package->is_active ? 'Voucher Package activated successfully' : 'Voucher Package deactivated successfully';
@@ -254,6 +285,9 @@ class ConfigurationController extends Controller
     public function getUsers(Request $request)
     {
 
+        if (!hasPermission('view_users')) {
+            return response()->json(['message' => 'You are not authorized to perform this action. Please contact the administrator'], 401);
+        }
         $users = User::when($request->has('search'), function ($query) use ($request) {
             $query->where('name', 'like', '%' . $request->search . '%')
                 ->orWhere('email', 'like', '%' . $request->search . '%');
@@ -262,7 +296,12 @@ class ConfigurationController extends Controller
         if ($request->has('deleted') && $request->deleted == 'true') {
             $users = $users->onlyTrashed()->paginate(10);
         } else {
-            $users = $users->paginate(10);
+            // if noPagination
+            if ($request->has('no_paging') && $request->no_paging == 'true') {
+                $users = $users->get();
+            } else {
+                $users = $users->paginate(10);
+            }
         }
         return response()->json($users);
     }
@@ -270,7 +309,9 @@ class ConfigurationController extends Controller
     // get support-contacts
     public function getSupportContacts(Request $request)
     {
-
+        if (!hasPermission('view_support_contacts')) {
+            return response()->json(['message' => 'You are not authorized to perform this action. Please contact the administrator'], 401);
+        }
         $contacts = SupportContact::query()
             ->when(
                 $request->router_id != 0,
@@ -290,6 +331,9 @@ class ConfigurationController extends Controller
     public function saveSupportContact(Request $request)
     {
         try {
+            if (!hasPermission('create_support_contacts') && !hasPermission('edit_support_contacts')) {
+                return response()->json(['message' => 'You are not authorized to perform this action. Please contact the administrator'], 401);
+            }
             $validated = $request->validate([
                 'email' => 'nullable|email',
                 'phone_number' => 'required|string|max:15',
@@ -324,6 +368,9 @@ class ConfigurationController extends Controller
     public function deleteSupportContact($id)
     {
         try {
+            if (!hasPermission('delete_support_contacts')) {
+                return response()->json(['message' => 'You are not authorized to perform this action. Please contact the administrator'], 401);
+            }
             $contact = SupportContact::findOrFail($id);
             $contact->delete();
             return response()->json([

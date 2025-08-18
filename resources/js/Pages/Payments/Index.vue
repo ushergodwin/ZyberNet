@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { Head, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate } from "@/mixins/helpers.mixin.js";
+import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate, hasPermission } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 import emitter from "@/eventBus";
 
@@ -25,6 +25,7 @@ const state = reactive({
     routers: [],
     selectedRouter: null,
     selectedRouterId: 1,
+    currentUser: null,
 });
 
 const loadPayments = (page) => {
@@ -77,6 +78,7 @@ const loadRouters = () => {
             state.routers = response.data;
         })
         .catch(error => {
+            swalNotification('error', error.response.data.message || 'Failed to load routers.');
             console.error("Failed to load routers:", error);
         });
 };
@@ -95,6 +97,7 @@ onMounted(() => {
     if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
+    state.currentUser = usePage().props.auth.user;
     loadPayments(1);
     loadRouters();
     emitter.on('search', handleSearch);
@@ -205,7 +208,8 @@ const checkTransactionStatus = async (payment_id: number) => {
                         <td>
                             <!-- v-if="payment.channel == 'mobile_money'"-->
                             <button class="btn btn-success btn-sm" @click="checkTransactionStatus(payment.payment_id)"
-                                v-if="payment.channel == 'mobile_money' && ['new', 'instructions_sent'].includes(payment.status)">
+                                v-if="payment.channel == 'mobile_money' && ['new', 'instructions_sent', 'pending'].includes(payment.status)
+                                    && hasPermission('check_payment_status', state.currentUser?.permissions_list)">
                                 <i class="fas fa-sync"></i> Check Status
                             </button>
                             <span v-else>

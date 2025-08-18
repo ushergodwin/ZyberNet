@@ -18,6 +18,9 @@ class VoucherController extends Controller
     // get a list of vouchers
     public function getVouchers(Request $request)
     {
+        if (!hasPermission('view_vouchers')) {
+            return response()->json(['message' => 'You are not authorized to view vouchers. Please contact system admin.'], 401);
+        }
         $searchTerm = $request->input('search');
         $routerId = $request->input('router_id');
 
@@ -88,6 +91,9 @@ class VoucherController extends Controller
     // get a single voucher
     public function getVoucher($id)
     {
+        if (!hasPermission('view_vouchers')) {
+            return response()->json(['message' => 'You are not authorized to view vouchers. Please contact system admin.'], 401);
+        }
         $voucher = Voucher::with('package')->with('transaction')
             ->with('transaction.package')->findOrFail($id);
         return response()->json($voucher);
@@ -115,6 +121,9 @@ class VoucherController extends Controller
     // generateVoucher
     public function generateVoucher(Request $request)
     {
+        if (!hasPermission('create_vouchers')) {
+            return response()->json(['message' => 'You are not authorized to create vouchers. Please contact system admin.'], 401);
+        }
         $request->validate([
             'package_id' => 'required|exists:voucher_packages,id',
             'quantity'   => 'required|integer|min:1',
@@ -197,6 +206,9 @@ class VoucherController extends Controller
     public function destroy($code)
     {
         try {
+            if (!hasPermission('delete_vouchers')) {
+                return response()->json(['message' => 'You are not authorized to delete vouchers. Please contact system admin.'], 401);
+            }
             $voucher = Voucher::with('router')->where('code', $code)->first();
             if (!$voucher) {
                 return response()->json(['message' => 'Voucher not found'], 202);

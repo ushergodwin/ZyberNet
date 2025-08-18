@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\VoucherController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\RolePermissionController;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -18,6 +19,14 @@ Route::post('/txn/wthd', [PaymentController::class, 'saveTransaction']);
 Route::middleware('auth:sanctum')->group(function () {
     // Define your API routes here
     Route::prefix('configuration')->group(function () {
+        // roles and permissions 
+        Route::get('/roles', [RolePermissionController::class, 'index']);
+        Route::get('/permissions', [RolePermissionController::class, 'permissions']);
+        Route::post('/roles/{role}/assign-permissions', [RolePermissionController::class, 'assignPermissions']);
+        Route::post('/roles', [RolePermissionController::class, 'store']); // Create role
+        Route::post('/users/{user}/assign-roles', [RolePermissionController::class, 'assignRolesToUser']); // Assign roles to users
+        // delete role
+        Route::delete('/roles/{role}', [RolePermissionController::class, 'destroy'])->name('configuration.deleteRole');
         // routers 
         Route::get('/routers', [ConfigurationController::class, 'getRouters'])->name('configuration.routers');
         Route::get('/routers/{id}', [ConfigurationController::class, 'getRouter'])->name('configuration.router');
@@ -29,18 +38,17 @@ Route::middleware('auth:sanctum')->group(function () {
         // getRouterLogs
         Route::get('/router-logs', [RouterController::class, 'getRouterLogs'])->name('configuration.getRouterLogs');
         // voucher packages
-        Route::prefix('/vouchers')->group(function () {
-            Route::get('/packages', [ConfigurationController::class, 'getVoucherPackages'])->name('configuration.voucherPackages');
-            Route::get('/packages/{id}', [ConfigurationController::class, 'getVoucherPackage'])->name('configuration.voucherPackage');
-            Route::post('/packages', [ConfigurationController::class, 'createVoucherPackage'])->name('configuration.createVoucherPackage');
-            Route::put('/packages/{id}', [ConfigurationController::class, 'updateVoucherPackage'])->name('configuration.updateVoucherPackage');
-            Route::delete('/packages/{id}', [ConfigurationController::class, 'deleteVoucherPackage'])->name('configuration.deleteVoucherPackage');
-            //toggle
-            Route::post('/packages/{id}/toggle', [ConfigurationController::class, 'toggleVoucherPackage'])->name('configuration.toggleVoucherPackage');
 
-            // vouchers
-            Route::get('/', [VoucherController::class, 'getVouchers']);
-        });
+        Route::get('/vouchers/packages', [ConfigurationController::class, 'getVoucherPackages'])->name('configuration.voucherPackages');
+        Route::get('/vouchers/packages/{id}', [ConfigurationController::class, 'getVoucherPackage'])->name('configuration.voucherPackage');
+        Route::post('/vouchers/packages', [ConfigurationController::class, 'createVoucherPackage'])->name('configuration.createVoucherPackage');
+        Route::put('/vouchers/packages/{id}', [ConfigurationController::class, 'updateVoucherPackage'])->name('configuration.updateVoucherPackage');
+        Route::delete('/vouchers/packages/{id}', [ConfigurationController::class, 'deleteVoucherPackage'])->name('configuration.deleteVoucherPackage');
+        //toggle
+        Route::post('/packages/{id}/toggle', [ConfigurationController::class, 'toggleVoucherPackage'])->name('configuration.toggleVoucherPackage');
+
+        // vouchers
+        Route::get('/vouchers', [VoucherController::class, 'getVouchers']);
 
         // users 
         Route::get('/users', [ConfigurationController::class, 'getUsers'])->name('configuration.users');

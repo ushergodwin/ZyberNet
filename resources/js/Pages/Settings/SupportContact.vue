@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { Head, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate } from "@/mixins/helpers.mixin.js";
+import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate, hasPermission } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 import emitter from "@/eventBus";
 defineOptions({ layout: AdminLayout });
@@ -24,6 +24,7 @@ const state = reactive({
     },
     showAddContactModal: false,
     editSupportContact: false,
+    currentUser: null,
 });
 
 const loadSupportContacts = () => {
@@ -149,6 +150,7 @@ onMounted(() => {
     if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
+    state.currentUser = usePage().props.auth.user;
     loadSupportContacts();
     loadRouters();
     emitter.on('search', handleSearch);
@@ -173,7 +175,8 @@ onUnmounted(() => {
                         </option>
                     </select>
                     <!-- add new support contact-->
-                    <button class="btn btn-primary" @click="state.showAddContactModal = true">
+                    <button class="btn btn-primary" @click="state.showAddContactModal = true"
+                        v-if="hasPermission('create_support_contacts', state.currentUser?.permissions_list)">
                         <i class="fas fa-plus me-2"></i> Add Support Contact
                     </button>
                 </div>
@@ -199,10 +202,12 @@ onUnmounted(() => {
                         <td>{{ contact.email || 'N/A' }}</td>
                         <td class="text-end">
                             <div class="d-flex gap-3">
-                                <a href="#" class="text-primary" @click="editSupportContact(contact)">
+                                <a href="#" class="text-primary" @click="editSupportContact(contact)"
+                                    v-if="hasPermission('edit_support_contacts', state.currentUser?.permissions_list)">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="#" class="text-danger" @click="deleteSupportContact(contact)">
+                                <a href="#" class="text-danger" @click="deleteSupportContact(contact)"
+                                    v-if="hasPermission('edit_support_contacts', state.currentUser?.permissions_list)">
                                     <i class="fas fa-trash-alt"></i>
                                 </a>
                             </div>

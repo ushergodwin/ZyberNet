@@ -62,6 +62,9 @@ class RouterController extends Controller
     public function getRouterLogs(Request $request)
     {
 
+        if (!hasPermission('view_router_logs')) {
+            return response()->json(['message' => 'You are not authorized to view router logs. Please contact system admin.'], 401);
+        }
         $logs = RouterLog::when($request->has('search'), function ($query) use ($request) {
             $query->where('message', 'like', '%' . $request->search . '%')
                 //action

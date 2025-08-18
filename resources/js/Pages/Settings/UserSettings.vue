@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { Head, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate } from "@/mixins/helpers.mixin.js";
+import { showLoader, hideLoader, swalNotification, swalConfirm, formatDate, hasPermission } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 import emitter from '@/eventBus';
 defineOptions({ layout: AdminLayout });
@@ -30,6 +30,7 @@ const state = reactive({
     },
     tab: 0,
     searchQuery: '',
+    currentUser: null,
 });
 
 const loadUsers = (page) => {
@@ -210,6 +211,7 @@ onMounted(() => {
     if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
+    state.currentUser = usePage().props.auth.user;
     loadUsers(1);
     emitter.on('search', handleSearch);
 });
@@ -225,7 +227,8 @@ onUnmounted(() => {
         <div class="d-flex justify-content-end align-items-center mt-1">
             <section>
                 <div class="d-flex gap-3">
-                    <button class="btn btn-primary btn-sm" @click="openModal(false)">
+                    <button class="btn btn-primary btn-sm" @click="openModal(false)"
+                        v-if="hasPermission('create_users', state.currentUser?.permissions_list)">
                         <i class="fas fa-plus"></i> Add New User
                     </button>
 
@@ -255,10 +258,12 @@ onUnmounted(() => {
                             <td>{{ formatDate(user.created_at) }}</td>
                             <td>
                                 <div class="d-flex gap-3">
-                                    <a href="#" class="text-primary" @click="openModal(true, user)">
+                                    <a href="#" class="text-primary" @click="openModal(true, user)"
+                                        v-if="hasPermission('edit_users', state.currentUser?.permissions_list)">
                                         <i class="fas fa-edit text-primary"></i>
                                     </a>
-                                    <a href="#" class="text-danger" @click="deleteUser(user)">
+                                    <a href="#" class="text-danger" @click="deleteUser(user)"
+                                        v-if="hasPermission('delete_users', state.currentUser?.permissions_list)">
                                         <i class="fas fa-trash text-danger"></i>
                                     </a>
                                 </div>

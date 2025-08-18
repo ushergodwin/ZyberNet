@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { Head, router, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { showLoader, hideLoader, swalNotification, swalConfirm, number_format } from "@/mixins/helpers.mixin.js";
+import { showLoader, hideLoader, swalNotification, swalConfirm, number_format, hasPermission } from "@/mixins/helpers.mixin.js";
 import axios from "axios";
 import emitter from "@/eventBus";
 defineOptions({ layout: AdminLayout });
@@ -10,6 +10,8 @@ defineOptions({ layout: AdminLayout });
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
     if (token) axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    // set current user
+    state.currentUser = usePage().props.auth.user;
     loadVouchers(1);
     loadPackages();
     emitter.on('search', handleSearch);
@@ -48,6 +50,7 @@ const state = reactive({
     routers: [],
     selectedRouter: null,
     selectedVouchers: [],
+    currentUser: null,
 });
 
 const loadVouchers = (page) => {
@@ -72,7 +75,7 @@ const loadVouchers = (page) => {
         state.error = data.data.length === 0 ? "No vouchers found at the moment!." : null;
         state.loading = false;
     }).catch(error => {
-        state.error = "Failed to load vouchers.";
+        state.error = error.response.data.message || "Failed to load vouchers.";
         console.error(error);
         state.loading = false;
     });
@@ -85,7 +88,7 @@ const loadPackages = () => {
     }
     axios.get(url)
         .then(response => state.packages = response.data.packages)
-        .catch(() => swalNotification("error", "Failed to load packages"));
+        .catch((err) => swalNotification("error", err.response.data.message || "Failed to load packages"));
 };
 
 const loadRouters = () => {
@@ -93,7 +96,7 @@ const loadRouters = () => {
         .then(response => {
             state.routers = response.data;
         })
-        .catch(() => swalNotification("error", "Failed to load routers"));
+        .catch((err) => swalNotification("error", err.response.data.message || "Failed to load routers"));
 };
 
 // watch for changes in selectedRouterId to load vouchers for that router
@@ -142,13 +145,15 @@ const generateVouchers = () => {
                 state.form.quantity = 1;
                 swalNotification("success", `${state.generatedVouchers.length} vouchers generated.`).then(() => {
                     state.showPrintModal = true;
+                    // set selected router
+                    state.selectedRouter = state.routers.find(r => r.id === state.form.router_id) || null;
                     nextTick(() => printVouchers(state.generatedVouchers));
                     loadVouchers(1);
                 });
-            }).catch(error => {
+            }).catch(err => {
                 hideLoader();
-                swalNotification("error", "Failed to generate vouchers.");
-                console.error(error);
+                swalNotification("error", err.response.data.message || "Failed to generate vouchers.");
+                console.error(err);
             });
         }
     });
@@ -264,10 +269,10 @@ const getVoucherTransaction = (voucher) => {
             state.voucherTransaction = response.data.transaction;
             state.showTransactionModal = true;
         })
-        .catch(error => {
+        .catch(err => {
             hideLoader();
-            swalNotification("error", "Failed to load transaction.");
-            console.error(error);
+            swalNotification("error", err.response.data.message || "Failed to load transaction.");
+            console.error(err);
         });
 };
 
@@ -295,10 +300,10 @@ const saveTransaction = () => {
                         swalNotification("error", "Failed to save transaction.");
                     }
                 })
-                .catch(error => {
+                .catch(err => {
                     hideLoader();
-                    swalNotification("error", "Failed to save transaction.");
-                    console.error(error);
+                    swalNotification("error", err.response.data.message || "Failed to save transaction.");
+                    console.error(err);
                 });
         }
     });
@@ -321,10 +326,10 @@ const sendDeleteVoucherRequest = () => {
                 swalNotification("error", "Failed to delete voucher.");
             }
         })
-        .catch(error => {
+        .catch(err => {
             hideLoader();
-            swalNotification("error", "Failed to delete voucher.");
-            console.error(error);
+            swalNotification("error", err.response.data.message || "Failed to delete voucher.");
+            console.error(err);
         });
 }
 
@@ -391,10 +396,11 @@ const selectAllVouchers = () => {
                             {{ router.name }}
                         </option>
                     </select>
-                    <button class="btn btn-success" @click="goToPurchase">
+                    <!-- <button class="btn btn-success" @click="goToPurchase">
                         <i class="fas fa-dollar"></i> Purchase
-                    </button>
-                    <button class="btn btn-primary" @click="state.showCreateModal = true">
+                    </button> -->
+                    <button class="btn btn-primary" @click="state.showCreateModal = true"
+                        v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)">
                         <i class="fas fa-plus"></i> Create Vouchers
                     </button>
                     <button class="btn btn-secondary" v-if="state.selectedVouchers.length"
@@ -421,7 +427,8 @@ const selectAllVouchers = () => {
                         <th class="d-flex gap-2">
                             Actions
                             <!-- Checkbox to select voucher-->
-                            <div class="form-check">
+                            <div class="form-check"
+                                v-if="hasPermission('print_vouchers', state.currentUser?.permissions_list)">
                                 <input type="checkbox" class="form-check-input" name="customCheckBoxAll"
                                     :id="`customCheckBoxAll`" @change="selectAllVouchers"
                                     :checked="state.selectedVouchers.length === state.vouchers.length">
@@ -449,13 +456,16 @@ const selectAllVouchers = () => {
                                 <a href="#" class="text-primary" @click="getVoucherTransaction(voucher)">
                                     <i class="fas fa-credit-card text-primary"></i>
                                 </a>
-                                <a href="#" class="text-info" @click="printSingleVoucher(voucher)">
+                                <a href="#" class="text-info" @click="printSingleVoucher(voucher)"
+                                    v-if="hasPermission('print_vouchers', state.currentUser?.permissions_list)">
                                     <i class="fas fa-print text-info"></i>
                                 </a>
-                                <a href="#" class="text-danger" @click="deleteVoucher(voucher)">
+                                <a href="#" class="text-danger" @click="deleteVoucher(voucher)"
+                                    v-if="hasPermission('delete_vouchers', state.currentUser?.permissions_list)">
                                     <i class="fas fa-trash-alt text-danger"></i>
                                 </a>
-                                <div class="form-check">
+                                <div class="form-check"
+                                    v-if="hasPermission('prints_vouchers', state.currentUser?.permissions_list)">
                                     <input type="checkbox" class="form-check-input" name="customCheck"
                                         :id="`customCheck-${voucher.id}`" :value="voucher"
                                         @change="selectVoucher(voucher)"

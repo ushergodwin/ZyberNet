@@ -68,6 +68,10 @@ class ReportsController extends Controller
             }
         }
 
-        return response()->json(array_merge($routerStats, $statistics));
+        $finalStats = $routerStats;
+        if (hasPermission('view_revenue_stats')) {
+            $finalStats = array_merge($statistics, $routerStats);
+        }
+        return response()->json($finalStats);
     }
 }
