@@ -25,6 +25,9 @@ class CheckPendingTransactions extends Command
 
         if ($transactions->isNotEmpty()) {
             $this->info('Found pending transactions. Processing them...');
+            Log::info('Found pending transactions', [
+                'count' => $transactions->count(),
+            ]);
             $this->handleVouchers($transactions);
         } else {
             $this->info('No pending transactions found.');
@@ -39,6 +42,9 @@ class CheckPendingTransactions extends Command
 
         if ($transactionsWithoutVoucher->isNotEmpty()) {
             $this->info('Found successful transactions without vouchers. Processing them...');
+            Log::info('Found successful transactions without vouchers', [
+                'count' => $transactionsWithoutVoucher->count(),
+            ]);
             $this->handleVouchers($transactionsWithoutVoucher);
         } else {
             $this->info('No successful transactions without vouchers found.');
