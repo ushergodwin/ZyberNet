@@ -34,21 +34,21 @@ class CheckPendingTransactions extends Command
         }
 
         // Transactions that are successful but do not have a voucher
-        $transactionsWithoutVoucher = Transaction::where('status', 'successful')
-            ->with(['package', 'voucher'])
-            ->whereDoesntHave('voucher')
-            ->where('amount', '>', 0)
-            ->get();
+        // $transactionsWithoutVoucher = Transaction::where('status', 'successful')
+        //     ->with(['package', 'voucher'])
+        //     ->whereDoesntHave('voucher')
+        //     ->where('amount', '>', 0)
+        //     ->get();
 
-        if ($transactionsWithoutVoucher->isNotEmpty()) {
-            $this->info('Found successful transactions without vouchers. Processing them...');
-            Log::info('Found successful transactions without vouchers', [
-                'count' => $transactionsWithoutVoucher->count(),
-            ]);
-            $this->handleVouchers($transactionsWithoutVoucher);
-        } else {
-            $this->info('No successful transactions without vouchers found.');
-        }
+        // if ($transactionsWithoutVoucher->isNotEmpty()) {
+        //     $this->info('Found successful transactions without vouchers. Processing them...');
+        //     Log::info('Found successful transactions without vouchers', [
+        //         'count' => $transactionsWithoutVoucher->count(),
+        //     ]);
+        //     $this->handleVouchers($transactionsWithoutVoucher);
+        // } else {
+        //     $this->info('No successful transactions without vouchers found.');
+        // }
 
         $this->info('Done checking pending transactions.');
         return 0;
