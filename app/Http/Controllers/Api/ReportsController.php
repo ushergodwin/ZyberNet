@@ -39,8 +39,8 @@ class ReportsController extends Controller
         $fmt = fn($n) => number_format((float)$n, 2, '.', ',');
 
         $statistics = [
-            'total_vouchers' => Voucher::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
-            'expired_vouchers' => Voucher::where('expires_at', '<', now())->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'total_vouchers' => Voucher::withTrashed()->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'expired_vouchers' => Voucher::withTrashed()->where('expires_at', '<', now())->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
             'total_packages' => VoucherPackage::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
             'active_routers' => RouterConfiguration::when($routerId, fn($q) => $q->where('id', $routerId))->count(),
             'transactions' => Transaction::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),

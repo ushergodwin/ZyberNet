@@ -16,7 +16,7 @@ class RouterController extends Controller
     public function pushToRouter($voucherId)
     {
 
-        $voucher = Voucher::findOrFail($voucherId);
+        $voucher = Voucher::withTrashed()->findOrFail($voucherId);
         $router = RouterConfiguration::first();
 
         try {

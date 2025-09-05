@@ -13,6 +13,7 @@ import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { ZiggyVue } from "../../vendor/tightenco/ziggy";
 import "vue-toastification/dist/index.css";
 import { usePage } from "@inertiajs/vue3";
+import "flatpickr/dist/flatpickr.min.css";
 
 const token = usePage().props?.auth?.user?.api_token;
 

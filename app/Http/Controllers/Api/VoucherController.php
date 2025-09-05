@@ -19,74 +19,48 @@ class VoucherController extends Controller
     public function getVouchers(Request $request)
     {
         if (!hasPermission('view_vouchers')) {
-            return response()->json(['message' => 'You are not authorized to view vouchers. Please contact system admin.'], 401);
+            return response()->json([
+                'message' => 'You are not authorized to view vouchers. Please contact system admin.'
+            ], 401);
         }
+
         $searchTerm = $request->input('search');
-        $routerId = $request->input('router_id');
+        $routerId   = $request->input('router_id');
+        $dateFrom   = $request->input('date_from'); // optional, format: Y-m-d
+        $dateTo     = $request->input('date_to');   // optional, format: Y-m-d
 
-        $vouchers = Voucher::when($routerId, function ($query) use ($routerId, $searchTerm) {
-            $query->where('router_id', $routerId)
-                ->when($searchTerm === 'active', function ($query) {
-                    $query->where('expires_at', '>', now());
-                })
-                ->when($searchTerm === 'expired', function ($query) {
-                    $query->where('expires_at', '<', now());
-                })
-                ->when($searchTerm === 'used', function ($query) {
-                    $query->where('is_used', 1);
-                })
-                ->when($searchTerm === 'unused', function ($query) {
-                    $query->where('is_used', 0);
-                })
-                ->when($searchTerm === 'activated:Y', function ($query) {
-                    $query->whereNotNull('activated_at');
-                })
-                ->when($searchTerm === 'activated:N', function ($query) {
-                    $query->whereNull('activated_at');
-                })
-                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused', 'activated:Y', 'activated:N']), function ($query) use ($searchTerm) {
-                    $query->where(function ($q) use ($searchTerm) {
-                        $q->where('code', 'like', '%' . $searchTerm . '%')
-                            ->orWhereHas('package', function ($q2) use ($searchTerm) {
-                                $q2->where('name', 'like', '%' . $searchTerm . '%');
-                            });
-                    });
-                });
-        }, function ($query) use ($searchTerm) {
-            $query->when($searchTerm === 'active', function ($query) {
-                $query->where('expires_at', '>', now());
-            })
-                ->when($searchTerm === 'expired', function ($query) {
-                    $query->where('expires_at', '<', now());
-                })
-                ->when($searchTerm === 'used', function ($query) {
-                    $query->where('is_used', 1);
-                })
-                ->when($searchTerm === 'unused', function ($query) {
-                    $query->where('is_used', 0);
-                })
-                ->when($searchTerm === 'activated:Y', function ($query) {
-                    $query->whereNotNull('activated_at');
-                })
-                ->when($searchTerm === 'activated:N', function ($query) {
-                    $query->whereNull('activated_at');
-                })
-                ->when(!in_array($searchTerm, ['active', 'expired', 'used', 'unused', 'activated:Y', 'activated:N']), function ($query) use ($searchTerm) {
-                    $query->where(function ($q) use ($searchTerm) {
-                        $q->where('code', 'like', '%' . $searchTerm . '%')
-                            ->orWhereHas('package', function ($q2) use ($searchTerm) {
-                                $q2->where('name', 'like', '%' . $searchTerm . '%');
-                            });
-                    });
-                });
-        })
+        $vouchers = Voucher::query()
+            ->when($routerId, fn($q) => $q->where('router_id', $routerId))
+            ->when($searchTerm, fn($q) => $this->applySearchFilter($q, $searchTerm))
+            ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn($q) => $q->whereDate('created_at', '<=', $dateTo))
             ->with('package')
-            ->orderBy('created_at', 'desc')
-            ->paginate(100);
-
+            ->orderByDesc('created_at')
+            ->paginate(150);
 
         return response()->json($vouchers);
     }
+
+    /**
+     * Apply search filters to the query.
+     */
+    protected function applySearchFilter($query, $searchTerm)
+    {
+        return $query->when($searchTerm === 'active', fn($q) => $q->where('expires_at', '>', now()))
+            ->when($searchTerm === 'expired', fn($q) => $q->where('expires_at', '<', now()))
+            ->when($searchTerm === 'used', fn($q) => $q->where('is_used', 1))
+            ->when($searchTerm === 'unused', fn($q) => $q->where('is_used', 0))
+            ->when($searchTerm === 'activated:Y', fn($q) => $q->whereNotNull('activated_at'))
+            ->when($searchTerm === 'activated:N', fn($q) => $q->whereNull('activated_at'))
+            ->when(
+                !in_array($searchTerm, ['active', 'expired', 'used', 'unused', 'activated:Y', 'activated:N']),
+                fn($q) => $q->where(function ($sub) use ($searchTerm) {
+                    $sub->where('code', 'like', "%$searchTerm%")
+                        ->orWhereHas('package', fn($q2) => $q2->where('name', 'like', "%$searchTerm%"));
+                })
+            );
+    }
+
 
     // get a single voucher
     public function getVoucher($id)
@@ -103,7 +77,7 @@ class VoucherController extends Controller
     public function getVoucherTransaction($id)
     {
         try {
-            $voucher = Voucher::with('transaction')
+            $voucher = Voucher::withTrashed()->with('transaction')
                 ->with('transaction.package')->findOrFail($id);
             $transaction = $voucher->transaction;
             if (!$transaction) {

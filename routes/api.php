@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\RolePermissionController;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
 // api routes
 Route::post('/txn/wthd', [PaymentController::class, 'saveTransaction']);
 
@@ -27,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/users/{user}/assign-roles', [RolePermissionController::class, 'assignRolesToUser']); // Assign roles to users
         // delete role
         Route::delete('/roles/{role}', [RolePermissionController::class, 'destroy'])->name('configuration.deleteRole');
+
         // routers 
         Route::get('/routers', [ConfigurationController::class, 'getRouters'])->name('configuration.routers');
         Route::get('/routers/{id}', [ConfigurationController::class, 'getRouter'])->name('configuration.router');
@@ -37,8 +39,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/routers/{id}/test', [RouterController::class, 'testConnection'])->name('configuration.testRouterConnection');
         // getRouterLogs
         Route::get('/router-logs', [RouterController::class, 'getRouterLogs'])->name('configuration.getRouterLogs');
-        // voucher packages
 
+        // voucher packages
         Route::get('/vouchers/packages', [ConfigurationController::class, 'getVoucherPackages'])->name('configuration.voucherPackages');
         Route::get('/vouchers/packages/{id}', [ConfigurationController::class, 'getVoucherPackage'])->name('configuration.voucherPackage');
         Route::post('/vouchers/packages', [ConfigurationController::class, 'createVoucherPackage'])->name('configuration.createVoucherPackage');
@@ -65,7 +67,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/support-contacts', [ConfigurationController::class, 'getSupportContacts'])->name('configuration.supportContacts');
         // save support-contacts (POST)
         Route::post('/support-contacts', [ConfigurationController::class, 'saveSupportContact'])->name('configuration.saveSupportContacts');
-
         //delete support contact
         Route::delete('/support-contacts/{id}', [ConfigurationController::class, 'deleteSupportContact'])->name('configuration.deleteSupportContact');
     });
@@ -88,12 +89,16 @@ Route::middleware('auth:sanctum')->group(function () {
     //admin routes
     Route::prefix('transactions')->group(function () {
         Route::get('/', [PaymentController::class, 'getTransactions'])->name('admin.payments');
+        // NEW: Export transactions to CSV
+        Route::get('/export', [PaymentController::class, 'exportTransactions'])->name('admin.transaction.export');
     });
 
     // reports 
     Route::prefix('reports')->group(function () {
         //getStatistics from ReportsController
         Route::get('/stats', [ReportsController::class, 'getStatistics'])->name('reports.statistics');
+        // NEW: Enhanced transaction reports
+        Route::get('/transactions/summary', [PaymentController::class, 'getTransactionStats'])->name('reports.transactions.summary');
     });
 });
 
@@ -103,6 +108,7 @@ Route::prefix('payments')->group(function () {
     // check transaction status
     Route::get('/voucher/status/{id}', [PaymentController::class, 'checkTransactionStatus'])->name('payment.checkVoucherStatus');
 });
+
 Route::get('configuration/vouchers/packages', [ConfigurationController::class, 'getVoucherPackages'])->name('configuration.voucherPackages');
 // sync vouchers 
 Route::get('configuration/vouchers/sync', [VoucherController::class, 'syncVouchersFromLocalHost'])->name('configuration.syncVouchers');
