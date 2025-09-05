@@ -73,7 +73,7 @@ class PaymentService
         // Update transaction status
         $transaction->status = $paymentData['status'];
         $transaction->response_json = json_encode($paymentData);
-        $transaction->save();
+
 
         $voucher = null;
         if ($voucher_code) {
@@ -108,6 +108,7 @@ class PaymentService
         if ($transaction->voucher && !$voucher) {
             $voucher = $transaction->voucher;
         }
+        $transaction->save();
         return $voucher;
     }
 }

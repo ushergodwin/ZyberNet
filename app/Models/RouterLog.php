@@ -20,7 +20,7 @@ class RouterLog extends Model
 
     public function voucher()
     {
-        $voucher = Voucher::where('code', $this->voucher)->first();
+        $voucher = Voucher::withTrashed()->where('code', $this->voucher)->first();
         if ($voucher) {
             return $voucher;
         }

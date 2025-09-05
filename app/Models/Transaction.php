@@ -23,7 +23,7 @@ class Transaction extends Model
         'package_id',
         'response_json',
         'channel',
-        'router_id'
+        'router_id',
     ];
 
     protected $appends = [
@@ -46,6 +46,6 @@ class Transaction extends Model
 
     public function voucher()
     {
-        return $this->hasOne(Voucher::class, 'transaction_id');
+        return $this->hasOne(Voucher::class)->withTrashed();
     }
 }

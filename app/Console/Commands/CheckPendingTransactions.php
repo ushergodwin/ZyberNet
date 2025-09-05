@@ -15,85 +15,88 @@ class CheckPendingTransactions extends Command
 
     public function handle()
     {
-        $this->info('Checking pending transactions...');
+        $this->info('Checking transactions...');
 
-        $transactions = Transaction::whereIn('status', ['new', 'instructions_sent', 'pending'])
-            // amount not negative
-            ->where('amount', '>', 0)
-            ->with('package')
-            ->get();
+        // 1. Process pending transactions
+        $this->processTransactions(
+            Transaction::whereIn('status', ['new', 'instructions_sent', 'pending', 'processing_started'])
+                ->where('amount', '>', 0)
+                ->with('package'),
+            'pending'
+        );
 
-        if ($transactions->isNotEmpty()) {
-            $this->info('Found pending transactions. Processing them...');
-            Log::info('Found pending transactions', [
-                'count' => $transactions->count(),
-            ]);
-            $this->handleVouchers($transactions);
-        } else {
-            $this->info('No pending transactions found.');
-        }
+        // 2. Process successful transactions without vouchers
+        $this->processTransactions(
+            Transaction::where('status', 'successful')
+                ->where('amount', '>', 0)
+                ->whereDoesntHave('voucher')
+                ->with('package'),
+            'successful_without_voucher'
+        );
 
-        // Transactions that are successful but do not have a voucher
-        // $transactionsWithoutVoucher = Transaction::where('status', 'successful')
-        //     ->with(['package', 'voucher'])
-        //     ->whereDoesntHave('voucher')
-        //     ->where('amount', '>', 0)
-        //     ->get();
-
-        // if ($transactionsWithoutVoucher->isNotEmpty()) {
-        //     $this->info('Found successful transactions without vouchers. Processing them...');
-        //     Log::info('Found successful transactions without vouchers', [
-        //         'count' => $transactionsWithoutVoucher->count(),
-        //     ]);
-        //     $this->handleVouchers($transactionsWithoutVoucher);
-        // } else {
-        //     $this->info('No successful transactions without vouchers found.');
-        // }
-
-        $this->info('Done checking pending transactions.');
+        $this->info('Done checking transactions.');
         return 0;
     }
 
-
-    protected function handleVouchers($transactions)
+    /**
+     * Process transactions in chunks
+     */
+    protected function processTransactions($query, string $context)
     {
-        try {
-            foreach ($transactions as $transaction) {
-                $this->info("Checking transaction ID: {$transaction->payment_id}");
-
-                try {
-                    $voucher = PaymentService::checkPaymentStatus(
-                        $transaction->payment_id,
-                        $transaction,
-                        true
-                    );
-
-                    // Only send SMS if the transaction is successful and voucher exists
-                    if ($transaction->status === 'successful' && $voucher) {
-                        $phoneNumber = preg_replace('/^\+/', '', $transaction->phone_number);
-                        $smsSent = SmsService::send(
-                            $phoneNumber,
-                            "Your SuperSpotWiFi voucher code is: {$voucher->code}. Use it to access the internet. Thank you for using our service!"
-                        );
-
-                        if ($smsSent) {
-                            $this->info("SMS sent to {$phoneNumber}");
-                        } else {
-                            $this->warn("Failed to send SMS to {$phoneNumber}");
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    Log::error('Error processing transaction ' . $transaction->payment_id, [
-                        'error' => $e->getMessage(),
-                    ]);
-                    $this->error("Failed to process transaction {$transaction->payment_id}: {$e->getMessage()}");
-                }
+        $query->chunkById(100, function ($transactions) use ($context) {
+            if ($transactions->isEmpty()) {
+                $this->info("No {$context} transactions found in this chunk.");
+                return;
             }
-        } catch (\Throwable $th) {
-            //throw $th;
-            Log::error('Error checking pending transactions', [
-                'error' => $th->getMessage(),
+
+            $this->info("Processing {$transactions->count()} {$context} transactions...");
+            Log::info("Processing {$context} transactions", [
+                'count' => $transactions->count(),
             ]);
+
+            foreach ($transactions as $transaction) {
+                $this->handleVoucher($transaction);
+            }
+        });
+    }
+
+    /**
+     * Handle voucher issuing and SMS notification for a single transaction
+     */
+    protected function handleVoucher(Transaction $transaction)
+    {
+        $this->info("Checking transaction ID: {$transaction->payment_id}");
+
+        try {
+            $voucher = PaymentService::checkPaymentStatus(
+                $transaction->payment_id,
+                $transaction,
+                true
+            );
+
+            if ($transaction->status === 'successful' && $voucher) {
+                $phoneNumber = preg_replace('/^\+/', '', $transaction->phone_number);
+
+                $smsSent = SmsService::send(
+                    $phoneNumber,
+                    __("Your SuperSpotWiFi voucher code is: :code. Use it to access the internet. Thank you for using our service!", [
+                        'code' => $voucher->code,
+                    ])
+                );
+
+                if ($smsSent) {
+                    $this->info("SMS sent to {$phoneNumber}");
+                } else {
+                    $this->warn("Failed to send SMS to {$phoneNumber}");
+                }
+            } else {
+                $this->info("Transaction {$transaction->payment_id} status: {$transaction->status}. No voucher issued.");
+            }
+        } catch (\Throwable $e) {
+            Log::error('Error processing transaction ' . $transaction->payment_id, [
+                'error' => $e->getMessage(),
+            ]);
+            $this->error("Failed to process transaction {$transaction->payment_id}: {$e->getMessage()}");
         }
     }
 }

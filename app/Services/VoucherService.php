@@ -12,13 +12,26 @@ class VoucherService
 {
     public function createVouchersAndPushToRouter(array $voucherDataList, RouterConfiguration $router)
     {
-        $createdVouchers = [];
+        $processedVouchers = [];
         DB::beginTransaction();
 
         try {
             $mikrotik = new MikroTikService($router);
 
             foreach ($voucherDataList as $voucherData) {
+                $existingVoucher = null;
+
+                // Check if transaction_id already exists
+                if (!empty($voucherData['transaction_id'])) {
+                    $existingVoucher = Voucher::withTrashed()->where('transaction_id', $voucherData['transaction_id'])->first();
+                }
+
+                if ($existingVoucher) {
+                    // Transaction already has a voucher, return it
+                    $processedVouchers[] = $existingVoucher;
+                    continue;
+                }
+
                 // 1. Create hotspot user on router
                 $mikrotik->createHotspotUser(
                     $voucherData['code'],
@@ -28,23 +41,24 @@ class VoucherService
                 );
 
                 // 2. Save voucher to DB
-                $createdVouchers[] = Voucher::create([
-                    'code' => $voucherData['code'],
-                    'package_id' => $voucherData['package_id'],
-                    'expires_at' => $voucherData['expires_at'],
-                    'router_id' => $router->id,
+                $processedVouchers[] = Voucher::create([
+                    'code'           => $voucherData['code'],
+                    'package_id'     => $voucherData['package_id'],
+                    'expires_at'     => $voucherData['expires_at'],
+                    'router_id'      => $router->id,
                     'transaction_id' => $voucherData['transaction_id'] ?? null,
                 ]);
             }
 
             DB::commit();
-            return $createdVouchers;
+            return $processedVouchers;
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Voucher generation failed: ' . $e->getMessage());
             throw $e;
         }
     }
+
 
     // delete voucher from router and database
     public function deleteVoucher(Voucher $voucher)
