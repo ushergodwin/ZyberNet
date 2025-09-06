@@ -21,6 +21,10 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            #Stash any changes that may prevent pulling
+            git -C /var/www/superspotwifi stash save
+            #Drop the stash
+            git -C /var/www/superspotwifi stash drop
             # Pull latest code safely using absolute path
             git -C /var/www/superspotwifi pull origin main
             
