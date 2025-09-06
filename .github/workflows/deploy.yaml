@@ -49,6 +49,7 @@ jobs:
             # Run Laravel migrations
             docker exec -u root superspotwifi-app php artisan migrate --force
             # Clear and cache Laravel config and routes
+            docker exec -u root superspotwifi-app php artisan optimize:clear
             docker exec -u root superspotwifi-app php artisan config:cache
             docker exec -u root superspotwifi-app php artisan route:cache 
             # Install Node.js dependencies if node_modules folder missing
