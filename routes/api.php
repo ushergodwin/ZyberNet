@@ -46,12 +46,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/vouchers/packages', [ConfigurationController::class, 'createVoucherPackage'])->name('configuration.createVoucherPackage');
         Route::put('/vouchers/packages/{id}', [ConfigurationController::class, 'updateVoucherPackage'])->name('configuration.updateVoucherPackage');
         Route::delete('/vouchers/packages/{id}', [ConfigurationController::class, 'deleteVoucherPackage'])->name('configuration.deleteVoucherPackage');
+
         //toggle
         Route::post('/packages/{id}/toggle', [ConfigurationController::class, 'toggleVoucherPackage'])->name('configuration.toggleVoucherPackage');
 
         // vouchers
         Route::get('/vouchers', [VoucherController::class, 'getVouchers']);
-
+        Route::post('/vouchers/delete-batch', [VoucherController::class, 'deleteBatchVouchers']);
         // users 
         Route::get('/users', [ConfigurationController::class, 'getUsers'])->name('configuration.users');
         // register user

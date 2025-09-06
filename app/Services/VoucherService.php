@@ -81,4 +81,44 @@ class VoucherService
             throw $e;
         }
     }
+
+    public function deleteVouchers($vouchers)
+    {
+        DB::beginTransaction();
+
+        $deleted = [];
+        $failed = [];
+
+        try {
+            foreach ($vouchers as $voucher) {
+                try {
+                    // router deletion must be one by one
+                    $mikrotik = new MikroTikService($voucher->router);
+                    $mikrotik->deleteHotspotUser($voucher->code);
+
+                    // database deletion
+                    $voucher->delete();
+
+                    $deleted[] = $voucher->code;
+                } catch (\Throwable $e) {
+                    Log::error("Failed to delete voucher {$voucher->code}: " . $e->getMessage());
+                    $failed[] = $voucher->code;
+                    // continue to the next voucher instead of rollback
+                }
+            }
+
+            // ✅ commit only DB deletions that worked
+            DB::commit();
+
+            return [
+                'deleted' => $deleted,
+                'failed' => $failed
+            ];
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Batch voucher deletion failed: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
 }

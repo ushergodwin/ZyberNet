@@ -437,6 +437,42 @@ const printSelectedVouchers = () => {
     printVouchers(state.selectedVouchers);
     state.selectedVouchers = [];
 };
+
+const deleteSelectedVouchers = () => {
+        if (!state.selectedVouchers.length)
+        return swalNotification("info", "No vouchers selected.");
+    state.selectedRouter =
+        state.routers.find((r) => r.id === state.selectedRouterId) || null;
+    swalConfirm.fire({
+        icon: 'warning',
+        title: 'Confirm Deleting Vouchers',
+        text: 'You are about to delete all the selected vouchers. This action cannot be undone! Proceed?',
+        confirmButtonText: 'Yes, Proceed',
+        reverseButtons: true,
+        showCancelButton: true,
+    }).then(results => {
+        if(results.isConfirmed) {
+            const voucherIds = state.selectedVouchers.map((v) => v.id);
+            showLoader();
+            axios.post('/api/configuration/vouchers/delete-batch', {
+                vouchers: voucherIds
+            }).then(response => {
+                hideLoader();
+                if(response.status === 200) {
+                    swalNotification('success', response.data.message)
+                    .then(() => {
+                        state.selectedVouchers = [];
+                        loadVouchers(state.pagination.current_page);
+                    })
+                }else {
+                    swalNotification('error', response.data.message);
+                }
+            }).catch(error => {
+                swalNotification('error', error.response.data?.message || 'An error occurred while deleting the selected vouchers. Please try again.')
+            });
+        }
+    })
+}
 </script>
 
 <template>
@@ -483,9 +519,13 @@ const printSelectedVouchers = () => {
                         v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)">
                         <i class="fas fa-plus"></i> Create Vouchers
                     </button>
-                    <button class="btn btn-secondary" v-if="state.selectedVouchers.length"
+                    <button class="btn btn-secondary" v-if="state.selectedVouchers.length > 1"
                         @click="printSelectedVouchers">
                         <i class="fas fa-print"></i> Reprint Vouchers
+                    </button>
+                     <button class="btn btn-danger" v-if="state.selectedVouchers.length > 1"
+                        @click="deleteSelectedVouchers">
+                        <i class="fas fa-trash-alt"></i> Delete Vouchers
                     </button>
                 </div>
             </section>
