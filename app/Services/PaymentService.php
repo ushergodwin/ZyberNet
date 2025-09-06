@@ -30,7 +30,7 @@ class PaymentService
         ]);
 
         try {
-            $response = Http::withToken(env('CINEMAUG_API_TOKEN'))
+            $response = Http::withToken(config('services.cinemaug.token'))
                 ->post('https://cinemaug.com/payments/collect.php', $payload);
 
             Log::info('📡 Payment API Response', [

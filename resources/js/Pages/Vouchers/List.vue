@@ -563,8 +563,9 @@ const deleteSelectedVouchers = () => {
                             <span class="badge bg-secondary" v-else>N</span>
                         </td>
                         <td>
-                            <span class="badge bg-success" v-if="voucher.is_active && voucher.activated_at">{{
-                                voucher.expires_in || '-' }}</span>
+                            <span class="badge bg-success" v-if="voucher.is_active && voucher.activated_at">
+                                {{ voucher.expires_in ? `Expires In ${voucher.expires_in}` : '-' }}
+                            </span>
                             <span class="badge bg-secondary" v-if="!voucher.activated_at">Inactive</span>
                             <span class="badge bg-danger"
                                 v-if="!voucher.is_active && voucher.activated_at">Expired</span>
