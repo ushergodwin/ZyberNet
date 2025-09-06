@@ -40,4 +40,7 @@ return [
         'sender' => env('EGOSMS_SENDER', 'SuperSpot Wifi'),
         'api_url' => env('EGOSMS_API_URL', 'https://www.egosms.co/api/v1/plain/'),
     ],
+    'cinemaug' => [
+        'token' => env('CINEMAUG_API_TOKEN'),
+    ],
 ];
