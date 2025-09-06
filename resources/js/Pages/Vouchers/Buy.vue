@@ -80,13 +80,18 @@ async function purchaseVoucher() {
         showLoader();
         const response = await axios.post('/api/payments/voucher', data);
         hideLoader();
-        swalNotification('success', response.data.message)
+        if (response.status === 200) {
+            swalNotification('success', response.data.message)
             .then(() => {
                 transactionId.value = response.data.paymentData.id;
                 checkingStatus.value = true;
                 voucher.value = null; // Reset voucher
                 checkTransactionStatus(); // Start checking status
             });
+        } else {
+            processingPayment.value = false;
+            swalNotification('error', 'Failed to initiate payment. Please try again.');
+        }
     } catch (error) {
         console.error('Payment error:', error);
         swalNotification('error', error.response?.data?.message || 'Payment failed');
@@ -215,7 +220,7 @@ onMounted(() => {
             </div>
 
             <!-- Submit Button -->
-            <div class="d-grid">
+            <div class="d-grid" v-if="!checkingStatus && !voucher">
                 <button class="btn btn-gradient text-white fw-bold" @click="purchaseVoucher"
                     :disabled="processingPayment">
                     <i class="fas fa-wallet me-2"></i> Pay Now
@@ -226,7 +231,7 @@ onMounted(() => {
             <div v-if="checkingStatus" class="text-center mt-4">
                 <div class="spinner-border text-light" role="status"></div>
                 <p class="mt-2 small text-white-50">
-                    Waiting for payment confirmation. This make take some time. Please
+                    Waiting for payment confirmation. This mayS take some time. Please
                     be patient and do not close or refresh this page.
                 </p>
             </div>
