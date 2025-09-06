@@ -201,4 +201,42 @@ class VoucherController extends Controller
             return response()->json(['message' => 'Failed to delete voucher', 'error' => $e->getMessage()], 500);
         }
     }
+
+    public function deleteBatchVouchers(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'vouchers' => 'required|array|min:1',
+                'vouchers.*' => 'int|distinct'
+            ]);
+
+            $voucherIds = $validated['vouchers'];
+
+            $vouchers = Voucher::with('router')->whereIn('id', $voucherIds)->get();
+
+            if ($vouchers->isEmpty()) {
+                return response()->json([
+                    'message' => 'No matching vouchers found',
+                    'requested' => $voucherCodes
+                ], 404);
+            }
+
+            $voucherService = new VoucherService();
+            $result = $voucherService->deleteVouchers($vouchers);
+
+            return response()->json([
+                'message' => 'Batch deletion of vouchers completed successfully!',
+                'deleted' => $result['deleted'],
+                'failed' => $result['failed'],
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('Failed to delete vouchers: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to delete vouchers. Kindly contant IT for support!',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }
