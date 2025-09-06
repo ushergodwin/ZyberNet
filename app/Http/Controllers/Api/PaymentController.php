@@ -29,7 +29,7 @@ class PaymentController extends Controller
                 return response()->json(['message' => 'Package not found'], 202);
             }
             $phoneNumber = $validated['phone_number'];
-            // Validate phone number format (optional, depending on your requirements)
+            // Validate phone number format (basic validation for Ugandan numbers)
             if (!preg_match('/^\+?256[0-9]{9}$/', $phoneNumber)) {
                 return response()->json(['message' => 'Invalid phone number format'], 202);
             }

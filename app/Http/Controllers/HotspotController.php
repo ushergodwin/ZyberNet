@@ -57,19 +57,36 @@ class HotspotController extends Controller
         return redirect()->route('hotspot.success');
     }
 
-    // success page
+    // activate voucher 
     public function success(Request $request)
     {
         $code = $request->query('username');
 
         if ($code) {
-            Voucher::where('code', $code)
+            $voucher = Voucher::with('package')
+                ->where('code', $code)
                 ->whereNull('activated_at')
-                ->update(['activated_at' => now()]);
+                ->first();
+
+            if ($voucher) {
+                $timeoutValue = (int) preg_replace('/[^0-9]/', '', $voucher->package->session_timeout);
+                $timeoutUnit  = strtolower(substr($voucher->package->session_timeout, -1));
+
+                // Calculate expires_at from activation time
+                $expiresAt = now()->add(
+                    $timeoutUnit === 'd' ? $timeoutValue . ' days' : $timeoutValue . ' hours'
+                );
+
+                $voucher->update([
+                    'activated_at' => now(),
+                    'expires_at'   => $expiresAt,
+                ]);
+            }
         }
 
         return response()->json(['status' => 'ok']);
     }
+
 
     // buyVoucher
     public function buyVoucher($id = null)

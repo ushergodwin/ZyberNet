@@ -23,40 +23,70 @@ class PaymentService
      */
     public static function processPayment(array $payload, VoucherPackage $package, string $voucher_code = ''): array
     {
-        $response = Http::withToken(env('CINEMAUG_API_TOKEN'))
-            ->post('https://cinemaug.com/payments/collect.php', $payload);
-
-        if (!$response->successful()) {
-            return [
-                'message' => 'Payment request failed',
-                'error'   => $response->body(),
-            ];
-        }
-
-        $paymentData = $response->json();
-        // Store transaction
-        $transaction = Transaction::create([
-            'phone_number'  => $paymentData['contact']['phone_number'],
-            'amount'        => $paymentData['amount'],
-            'currency'      => $paymentData['currency'],
-            'status'        => $paymentData['status'],
-            'payment_id'    => $paymentData['id'],
-            'mfscode'       => $paymentData['mfscode'],
-            'package_id'    => $package->id,
-            'response_json' => json_encode($paymentData),
-            'channel'       => 'mobile_money',
-            'router_id'     => $package->router_id,
+        Log::info('🚀 Starting processPayment', [
+            'payload' => $payload,
+            'package_id' => $package->id,
+            'voucher_code' => $voucher_code
         ]);
 
-        if ($voucher_code) {
-            $voucher = Voucher::where('code', $voucher_code)->first();
-            if ($voucher) {
-                $voucher->transaction_id = $transaction->id;
-                $voucher->save();
-            }
-        }
+        try {
+            $response = Http::withToken(env('CINEMAUG_API_TOKEN'))
+                ->post('https://cinemaug.com/payments/collect.php', $payload);
 
-        return $paymentData;
+            Log::info('📡 Payment API Response', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+
+            if (!$response->successful()) {
+                return [
+                    'message' => 'Payment request failed',
+                    'error'   => $response->body(),
+                ];
+            }
+
+            $paymentData = $response->json();
+            Log::info('✅ Parsed Payment Data', $paymentData);
+
+            $transaction = Transaction::create([
+                'phone_number'  => $paymentData['contact']['phone_number'] ?? null,
+                'amount'        => $paymentData['amount'] ?? null,
+                'currency'      => $paymentData['currency'] ?? null,
+                'status'        => $paymentData['status'] ?? null,
+                'payment_id'    => $paymentData['id'] ?? null,
+                'mfscode'       => $paymentData['mfscode'] ?? null,
+                'package_id'    => $package->id,
+                'response_json' => json_encode($paymentData),
+                'channel'       => 'mobile_money',
+                'router_id'     => $package->router_id,
+            ]);
+
+            Log::info('💾 Transaction created', ['transaction_id' => $transaction->id]);
+
+            if ($voucher_code) {
+                $voucher = Voucher::where('code', $voucher_code)->first();
+                if ($voucher) {
+                    $voucher->transaction_id = $transaction->id;
+                    $voucher->save();
+                    Log::info('🔗 Voucher linked to transaction', [
+                        'voucher_code' => $voucher_code,
+                        'transaction_id' => $transaction->id
+                    ]);
+                }
+            }
+
+            return $paymentData;
+        } catch (\Exception $e) {
+            Log::error('❌ processPayment Exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'message' => 'Exception during payment processing',
+                'error'   => $e->getMessage(),
+            ];
+        }
     }
 
     // check payment status
