@@ -93,7 +93,7 @@ class PaymentService
     public static function checkPaymentStatus(int $id, Transaction $transaction, bool $generate_voucher = true, string $voucher_code = '')
     {
 
-        $response = Http::withToken(env('CINEMAUG_API_TOKEN'))
+        $response = Http::withToken(config('services.cinemaug.token'))
             ->get('https://cinemaug.com/payments/collect.php?id=' . $id);
 
         if (!$response->successful()) {
