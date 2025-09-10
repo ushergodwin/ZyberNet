@@ -82,12 +82,12 @@ async function purchaseVoucher() {
         hideLoader();
         if (response.status === 200) {
             swalNotification('success', response.data.message)
-            .then(() => {
-                transactionId.value = response.data.paymentData.id;
-                checkingStatus.value = true;
-                voucher.value = null; // Reset voucher
-                checkTransactionStatus(); // Start checking status
-            });
+                .then(() => {
+                    transactionId.value = response.data.paymentData.id;
+                    checkingStatus.value = true;
+                    voucher.value = null; // Reset voucher
+                    checkTransactionStatus(); // Start checking status
+                });
         } else {
             processingPayment.value = false;
             swalNotification('error', 'Failed to initiate payment. Please try again.');
@@ -115,7 +115,7 @@ function checkTransactionStatus() {
 
             try {
                 const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}`);
-                const status = response.data.transaction?.status;
+                const transaction = response.data.transaction;
                 const voucherData = response.data.voucher;
 
                 if (voucherData) {
@@ -124,12 +124,11 @@ function checkTransactionStatus() {
                     processingPayment.value = false;
                     voucher.value = voucherData;
 
-                    swalNotification('success', 'Voucher is ready!')
-                        .then(() => connectToWiFi());
+                    swalNotification('success', `Payment successful! An SMS with your Voucher has been sent to ${transaction.phone_number}`);
                     return;
                 }
 
-                if (status === 'failed') {
+                if (transaction?.status === 'failed') {
                     clearInterval(interval);
                     checkingStatus.value = false;
                     processingPayment.value = false;
@@ -251,7 +250,7 @@ onMounted(() => {
                         <i class="fas fa-copy"></i> Copy Voucher
                     </button>
                     <!-- connect to WiFi -->
-                    <button class="btn btn-outline-primary btn-sm ms-2" @click="connectToWiFi">
+                    <button class="btn btn-outline-primary btn-sm ms-2" @click="connectToWiFi" v-if="props.link_login">
                         <i class="fas fa-print"></i> Connect to WiFi
                     </button>
                     <form method="POST" :action="props.link_login" id="connect-to-wifi-form">
