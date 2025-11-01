@@ -25,8 +25,15 @@
 
                     <!-- Password -->
                     <div class="mb-3">
-                        <InputLabel for="password" value="Password" />
-                        <TextInput id="password" v-model="form.password" type="password"
+                        <label for="password" class="form-label">
+                            Password &nbsp;
+                            <a href="javascript:void(0)" @click="togglePassword" class="text-light">
+                                <i :class="['fas', passwordInputType === 'password' ? 'fa-eye' : 'fa-eye-slash']">
+                                </i>
+                            </a>
+
+                        </label>
+                        <TextInput id="password" v-model="form.password" :type="passwordInputType"
                             class="mt-1 block w-full input-rounded" required autocomplete="current-password" />
                         <InputError class="mt-2" :message="form.errors.password" />
                     </div>
@@ -45,6 +52,11 @@
                             </span>
                         </button>
                     </div>
+                    <div class="d-flex justify-content-center align-items-center mt-4">
+                        <a href="javascript:void(0)" @click="forgotPassword">
+                            Forgot Password?
+                        </a>
+                    </div>
                 </form>
             </div>
         </section>
@@ -52,10 +64,11 @@
 </template>
 
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
+import { ref } from 'vue';
 
 defineProps({
     canResetPassword: Boolean,
@@ -76,6 +89,16 @@ const submit = () => {
         onFinish: () => form.reset('password'),
     });
 };
+
+const passwordInputType = ref('password');
+
+const togglePassword = () => {
+    passwordInputType.value = passwordInputType.value === 'password' ? 'text' : 'password';
+}
+
+const forgotPassword = () => {
+    router.visit('/forgot-password')
+}
 </script>
 
 <style scoped>

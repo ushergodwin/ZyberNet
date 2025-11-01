@@ -50,6 +50,7 @@ jobs:
 
             # Run Laravel migrations and optimize
             docker exec -u root superspotwifi-app php artisan migrate --force
+            docker exec -u root superspotwifi-app php artisan db:seed --force
             docker exec -u root superspotwifi-app php artisan optimize:clear
             docker exec -u root superspotwifi-app php artisan config:cache
             docker exec -u root superspotwifi-app php artisan route:cache 
