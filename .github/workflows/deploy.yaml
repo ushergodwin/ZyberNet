@@ -21,6 +21,8 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            # Mark repo as safe to avoid dubious ownership errors
+            git config --global --add safe.directory /var/www/superspotwifi
             #Stash any changes that may prevent pulling
             git -C /var/www/superspotwifi stash save
             #Drop the stash
