@@ -121,4 +121,30 @@ class VoucherService
         }
     }
 
+    static function generateVoucherCode(int $length = 6, string $type = 'nl'): string
+    {
+        $characters = '';
+
+        switch ($type) {
+            case 'n': // Numbers only
+                $characters = '0123456789';
+                break;
+            case 'l': // Letters only
+                $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                break;
+            case 'nl': // Numbers and letters
+            default:
+                $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                break;
+        }
+
+        $code = '';
+        $maxIndex = strlen($characters) - 1;
+
+        for ($i = 0; $i < $length; $i++) {
+            $code .= $characters[random_int(0, $maxIndex)];
+        }
+
+        return $code;
+    }
 }

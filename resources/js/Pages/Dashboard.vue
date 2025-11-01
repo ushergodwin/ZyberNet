@@ -13,10 +13,11 @@ const state = reactive({
     stats: {},
     isLoading: false,
     routers: [],
-    selectedRouterId: 1,
+    selectedRouterId: null,
     dateFrom: '',
     dateTo: '',
     allTime: false, // new toggle for all-time stats
+    loadingRouters: false,
 });
 
 // ----------------- LOADERS -----------------
@@ -49,11 +50,13 @@ const getDashboardStats = async () => {
 // ----------------- LOADERS -----------------
 const loadRouters = async () => {
     try {
+        state.loadingRouters = true;
         const response = await axios.get('/api/configuration/routers?no_paging=true');
         state.routers = response.data;
         if (!state.selectedRouterId && state.routers.length > 0) {
             state.selectedRouterId = state.routers[0].id;
         }
+        state.loadingRouters = false;
     } catch (error) {
         console.error('Failed to load routers:', error);
     }
@@ -77,9 +80,8 @@ onMounted(() => {
         dateFormat: "Y-m-d",
         onChange: ([date]) => { state.dateTo = date ? date.toISOString().split('T')[0] : ''; },
     });
-
-    getDashboardStats();
-    loadRouters();
+    loadRouters()
+        .then(() => getDashboardStats());
 });
 
 // ----------------- HELPERS -----------------
@@ -132,7 +134,7 @@ const resetFilters = () => {
         </div>
 
         <!-- Stats Cards -->
-        <div v-if="!state.isLoading" class="row">
+        <div v-if="!state.isLoading && !state.loadingRouters" class="row">
             <div class="col-md-3 mb-3" v-for="key in Object.keys(state.stats)" :key="key">
                 <div class="card bg-light text-dark p-3"
                     v-if="key !== 'top_profiles_by_user_count' && state.stats[key] !== undefined">
@@ -142,12 +144,14 @@ const resetFilters = () => {
             </div>
         </div>
 
-        <div v-else class="alert alert-info">
+        <div v-if="state.isLoading" class="alert alert-info">
             <span class="spinner-border spinner-border-sm text-primary me-2"></span> Loading dashboard stats...
         </div>
-
+        <div v-if="state.loadingRouters" class="alert alert-info">
+            <span class="spinner-border spinner-border-sm text-primary me-2"></span> Loading routers...
+        </div>
         <!-- Top Profiles -->
-        <div v-if="state.stats.top_profiles_by_user_count && Object.keys(state.stats.top_profiles_by_user_count).length"
+        <div v-if="state.stats.top_profiles_by_user_count && Object.keys(state.stats.top_profiles_by_user_count).length && !state.isLoading"
             class="mt-4">
             <h5>Top Profiles by User Count</h5>
             <table class="table table-sm table-bordered">

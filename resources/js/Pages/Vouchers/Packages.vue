@@ -24,11 +24,12 @@ const state = reactive({
         limit_bytes_unit: 'MB', // Default unit
         id: 0,
         session_timeout_unit: 'hours', // Default unit for session timeout
-        router_id: 1, // Default router ID
+        router_id: null, // Default router ID
     },
     routers: [],
-    selectedRouterId: 1, // For router selection
+    selectedRouterId: null, // For router selection
     currentUser: null,
+    loadingRouters: false,
 });
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
@@ -37,8 +38,7 @@ onMounted(() => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     state.currentUser = usePage().props.auth.user;
-    loadVoucherPackages();
-    getRouters();
+    loadRouters();
 });
 
 const submitForm = () => {
@@ -209,10 +209,18 @@ const formatBytes = (bytes) => {
 };
 
 // get routers
-const getRouters = () => {
+const loadRouters = () => {
+    state.loadingRouters = true;
     axios.get('/api/configuration/routers?no_paging=true')
         .then((res) => {
             state.routers = res.data;
+            state.routers = res.data;
+            if (!state.selectedRouterId && state.routers.length > 0) {
+                state.selectedRouterId = state.routers[0].id;
+                state.form.router_id = state.selectedRouterId;
+            }
+            state.loadingRouters = false;
+            loadVoucherPackages();
         })
         .catch((err) => {
             swalNotification('error', err.response.data.message || 'Failed to load routers.');
@@ -271,9 +279,12 @@ watch(() => state.selectedRouterId, (newRouterId) => {
         <div class="card card-body shadow">
             <!-- List of vouchers will be displayed here -->
             <div v-if="state.loading" class="text-center py-5">
-                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                <i class="fas fa-spinner fa-spin fa-2x"></i> Loading packages....
             </div>
-            <table v-if="!state.loading && state.vouchersPackages.length"
+            <div v-if="state.loadingRouters" class="text-center py-5">
+                <i class="fas fa-spinner fa-spin fa-2x"></i> Loading routers....
+            </div>
+            <table v-if="!state.loading && state.vouchersPackages.length && !state.loadingRouters"
                 class="table table-light table-hover align-middle mb-0 w-100">
                 <thead>
                     <tr>
@@ -318,7 +329,8 @@ watch(() => state.selectedRouterId, (newRouterId) => {
                     </tr>
                 </tbody>
             </table>
-            <div v-else class="text-center py-5">
+            <div v-if="!state.loading && !state.vouchersPackages.length && !state.loadingRouters"
+                class="text-center py-5">
                 <p>No Data Plans available.</p>
             </div>
         </div>

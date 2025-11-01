@@ -38,7 +38,7 @@ const state = reactive({
     voucherTransaction: null,
     showTransactionModal: false,
     selectedVoucher: null,
-    form: { package_id: null, quantity: 1, router_id: 1 },
+    form: { package_id: null, quantity: 1, router_id: null, voucher_length: 4, voucher_format: 'nl' },
     showCreateModal: false,
     packages: [],
     generatedVouchers: [],
@@ -49,11 +49,12 @@ const state = reactive({
         amount: 0,
         status: "successful",
     },
-    selectedRouterId: 1,
+    selectedRouterId: null,
     routers: [],
     selectedRouter: null,
     selectedVouchers: [],
     currentUser: null,
+    loadingRouters: false,
 });
 
 onMounted(() => {
@@ -61,8 +62,6 @@ onMounted(() => {
     if (token) axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     state.currentUser = usePage().props.auth.user;
 
-    loadVouchers(1);
-    loadPackages();
     loadRouters();
 
     emitter.on("search", handleSearch);
@@ -146,9 +145,19 @@ const loadPackages = () => {
 
 /** Load routers */
 const loadRouters = () => {
+    state.loadingRouters = true;
     axios
         .get("/api/configuration/routers?no_paging=true")
-        .then((response) => (state.routers = response.data))
+        .then((response) => {
+            state.routers = response.data;
+            if (!state.selectedRouterId && state.routers.length > 0) {
+                state.selectedRouterId = state.routers[0].id;
+                state.form.router_id = state.selectedRouterId;
+            }
+            state.loadingRouters = false;
+            loadPackages();
+            loadVouchers(1);
+        })
         .catch((err) =>
             swalNotification(
                 "error",
@@ -213,9 +222,7 @@ const generateVouchers = () => {
                 showLoader("generating...");
                 axios
                     .post("/api/vouchers/generate", {
-                        package_id: state.form.package_id,
-                        quantity: state.form.quantity,
-                        router_id: state.form.router_id,
+                        ...state.form
                     })
                     .then((response) => {
                         hideLoader();
@@ -439,7 +446,7 @@ const printSelectedVouchers = () => {
 };
 
 const deleteSelectedVouchers = () => {
-        if (!state.selectedVouchers.length)
+    if (!state.selectedVouchers.length)
         return swalNotification("info", "No vouchers selected.");
     state.selectedRouter =
         state.routers.find((r) => r.id === state.selectedRouterId) || null;
@@ -451,20 +458,20 @@ const deleteSelectedVouchers = () => {
         reverseButtons: true,
         showCancelButton: true,
     }).then(results => {
-        if(results.isConfirmed) {
+        if (results.isConfirmed) {
             const voucherIds = state.selectedVouchers.map((v) => v.id);
             showLoader();
             axios.post('/api/configuration/vouchers/delete-batch', {
                 vouchers: voucherIds
             }).then(response => {
                 hideLoader();
-                if(response.status === 200) {
+                if (response.status === 200) {
                     swalNotification('success', response.data.message)
-                    .then(() => {
-                        state.selectedVouchers = [];
-                        loadVouchers(state.pagination.current_page);
-                    })
-                }else {
+                        .then(() => {
+                            state.selectedVouchers = [];
+                            loadVouchers(state.pagination.current_page);
+                        })
+                } else {
                     swalNotification('error', response.data.message);
                 }
             }).catch(error => {
@@ -517,13 +524,13 @@ const deleteSelectedVouchers = () => {
                     </button>
                     <button class="btn btn-primary" @click="state.showCreateModal = true"
                         v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)">
-                        <i class="fas fa-plus"></i> Create Vouchers
+                        <i class="fas fa-plus"></i> &nbsp;&nbsp;<i class="fas fa-ticket"></i>
                     </button>
                     <button class="btn btn-secondary" v-if="state.selectedVouchers.length > 1"
                         @click="printSelectedVouchers">
                         <i class="fas fa-print"></i> Reprint Vouchers
                     </button>
-                     <button class="btn btn-danger" v-if="state.selectedVouchers.length > 1"
+                    <button class="btn btn-danger" v-if="state.selectedVouchers.length > 1"
                         @click="deleteSelectedVouchers">
                         <i class="fas fa-trash-alt"></i> Delete Vouchers
                     </button>
@@ -592,8 +599,12 @@ const deleteSelectedVouchers = () => {
                 </tbody>
             </table>
 
-            <div v-if="state.loading" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
-            <div v-if="!state.vouchers.length && !state.loading" class="text-danger text-center my-3">
+            <div v-if="state.loading" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading
+                vouchers...</div>
+            <div v-if="state.loadingRouters" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i>
+                Loading routers...</div>
+            <div v-if="!state.vouchers.length && !state.loading && !state.loadingRouters"
+                class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No vouchers found." }}
             </div>
 
@@ -624,7 +635,7 @@ const deleteSelectedVouchers = () => {
         <!-- Create Voucher Modal -->
         <div v-if="state.showCreateModal" class="modal fade show d-block" tabindex="-1"
             style="background:rgba(0,0,0,0.3)">
-            <div class="modal-dialog modal-lg">
+            <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Create Vouchers</h5>
@@ -641,7 +652,7 @@ const deleteSelectedVouchers = () => {
                             </select>
                         </div>
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-3 mb-3">
                                 <label for="package_id" class="form-label">Select Data Plan</label>
                                 <select v-model="state.form.package_id" class="form-select input-rounded">
                                     <option value="" disabled> -- select a plan --</option>
@@ -649,10 +660,26 @@ const deleteSelectedVouchers = () => {
                                         }} - {{ pkg.formatted_price }}</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-3 mb-3">
                                 <label for="quantity" class="form-label">Number of Vouchers</label>
                                 <input type="number" v-model="state.form.quantity" min="1"
                                     class="form-control input-rounded" />
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="voucher_length" class="form-label">Voucher Length</label>
+                                <select class="form-select" v-model="state.form.voucher_length">
+                                    <option :value="4">4</option>
+                                    <option :value="5">5</option>
+                                    <option :value="6">6</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="voucher_format" class="form-label">Voucher Format</label>
+                                <select class="form-select" v-model="state.form.voucher_format">
+                                    <option value="n">Numbers Only</option>
+                                    <option value="l">Letters Only</option>
+                                    <option value="nl">Numbers & Letters</option>
+                                </select>
                             </div>
                         </div>
 

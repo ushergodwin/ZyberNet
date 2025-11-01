@@ -120,7 +120,7 @@ class PaymentService
             // Calculate expiration date based on session timeout
             $expiresAt = now()->add($session_timeout_unit === 'd' ? $session_timeout . ' days' : $session_timeout . ' hours');
 
-            $code = strtoupper(Str::random(6));
+            $code = VoucherService::generateVoucherCode(4);
             $voucher = [
                 'code'           => $code,
                 'transaction_id' => $transaction->id,
