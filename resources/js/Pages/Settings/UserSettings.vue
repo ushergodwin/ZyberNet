@@ -31,6 +31,7 @@ const state = reactive({
     tab: 0,
     searchQuery: '',
     currentUser: null,
+    passwordInputType: 'password'
 });
 
 const loadUsers = (page) => {
@@ -205,9 +206,14 @@ const handleSearch = (value: string) => {
     loadUsers(1);
 };
 
+const togglePassword = () => {
+    state.passwordInputType = state.passwordInputType === 'password' ? 'text' : 'password';
+}
 watch(() => state.tab, (newTab) => {
     loadUsers(1);
 });
+
+
 
 onMounted(() => {
     const token = usePage().props.auth.user.api_token;
@@ -383,7 +389,7 @@ onUnmounted(() => {
         <!-- Your page content here -->
         <!-- Add/Edit Modal -->
         <div v-if="state.showModal" class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.3)">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">{{ state.isEdit ? "Edit User" : "Add New User" }}</h5>
@@ -391,34 +397,48 @@ onUnmounted(() => {
                     </div>
                     <form @submit.prevent="submitForm">
                         <div class="modal-body">
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Name</label>
-                                <input type="text" id="name" v-model="state.form.name" class="form-control"
-                                    autocomplete="off" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" id="email" v-model="state.form.email" class="form-control"
-                                    autocomplete="off" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>
-                                <input type="password" id="password" v-model="state.form.password" class="form-control"
-                                    autocomplete="off" required>
-                                <div class="form-text text-info">
-                                    <em>
-                                        <i class="fas fa-info-circle"></i> &nbsp;
-                                        Password must be at least 8 characters long and contain at least one uppercase
-                                        letter,
-                                        one lowercase letter, one number, and one special character.
-                                    </em>
-
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3">
+                                    <label for="name" class="form-label">Name</label>
+                                    <input type="text" id="name" v-model="state.form.name" class="form-control"
+                                        autocomplete="off" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" id="email" v-model="state.form.email" class="form-control"
+                                        autocomplete="off" required>
                                 </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="confirmPassword" class="form-label">Confirm Password</label>
-                                <input type="password" id="confirmPassword" v-model="state.form.confirmPassword"
-                                    class="form-control" autocomplete="off" required>
+                            <div class="row mb-3">
+                                <div class="col-md-5 mb-3">
+                                    <label for="password" class="form-label">Password</label>
+                                    <input :type="state.passwordInputType" id="password" v-model="state.form.password"
+                                        class="form-control" autocomplete="off" required>
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label for="confirmPassword" class="form-label">Confirm Password</label>
+                                    <input :type="state.passwordInputType" id="confirmPassword"
+                                        v-model="state.form.confirmPassword" class="form-control" autocomplete="off"
+                                        required>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="switchDefault"
+                                            @change="togglePassword">
+                                        <label class="form-check-label" for="switchDefault">
+                                            {{
+                                                state.passwordInputType === `password` ? `Show Password` : `Hide Password`
+                                            }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <em class="text-info">
+                                    <i class="fas fa-info-circle"></i> &nbsp;
+                                    Password must be at least 8 characters long and contain at least one
+                                    uppercase
+                                    letter,
+                                    one lowercase letter, one number, and one special character.
+                                </em>
                             </div>
                         </div>
                         <div class="modal-footer">
