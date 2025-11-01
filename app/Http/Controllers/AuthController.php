@@ -23,17 +23,18 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        // Generate and save token if not already present
-        if (!$user->api_token) {
-            $tokenResult = $user->createToken(
-                'ui-token',
-                ['*'],
-                now()->addMonths(2)
-            );
+        // Delete old tokens
+        $user->tokens()->where('name', 'ui-token')->delete();
 
-            $user->api_token = $tokenResult->plainTextToken;
-            $user->save();
-        }
+        // Always generate a new token
+        $tokenResult = $user->createToken(
+            'ui-token',
+            ['*'],
+            now()->addMonths(2)
+        );
+
+        $user->api_token = $tokenResult->plainTextToken;
+        $user->save();
 
         return redirect()->intended('/dashboard');
     }

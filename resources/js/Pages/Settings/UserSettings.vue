@@ -118,7 +118,11 @@ const submitForm = () => {
         .catch(error => {
             hideLoader();
             console.error(error);
-            swalNotification('error', 'Failed to save user');
+            let err = 'Failed to save user changes';
+            if (error?.response?.data?.error) {
+                err = error?.response?.data?.error;
+            }
+            swalNotification('error', err);
         });
 }
 
