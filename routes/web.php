@@ -26,11 +26,17 @@ Route::middleware([
 ])->group(function () {
     Route::get('/dashboard', function () {
         $user = Auth::user();
-        if (!$user->api_token) {
-            $user->api_token = $user->createToken('ui-token')->plainTextToken;
-            $user->save();
-        }
+        // Delete old tokens
+        $user->tokens()->where('name', 'ui-token')->delete();
+        // Always generate a new token
+        $tokenResult = $user->createToken(
+            'ui-token',
+            ['*'],
+            now()->addMonths(2)
+        );
 
+        $user->api_token = $tokenResult->plainTextToken;
+        $user->save();
         return Inertia::render('Dashboard');
     })->name('dashboard');
 
