@@ -126,6 +126,9 @@ class PaymentController extends Controller
             return response()->json(['message' => 'You are not authorized to view transactions. Please contact system admin.'], 401);
         }
 
+        if (!$request->date_from) {
+            $request->merge(['date_from' => now()->subMonths(2)->format('Y-m-d')]);
+        }
         // Validate the request parameters
         $request->validate([
             'search' => 'nullable|string|max:255',

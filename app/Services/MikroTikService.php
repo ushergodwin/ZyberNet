@@ -462,25 +462,16 @@ class MikroTikService
             $profileCountMap = [];
 
             $totalUsers = count($users);
-            $activeUsers = 0;
-            $inactiveUsers = 0;
             $onlineUsers = 0;
             $usersCreatedToday = 0;
 
             foreach ($users as $user) {
-                $lastLogin = $user['last-logged-in'] ?? null;
                 $username = $user['name'] ?? null;
                 $creationTime = $user['creation-time'] ?? null;
                 $profile = $user['profile'] ?? 'unknown';
 
                 // Profile count
                 $profileCountMap[$profile] = ($profileCountMap[$profile] ?? 0) + 1;
-
-                if ($lastLogin && strtolower($lastLogin) !== 'never') {
-                    $activeUsers++;
-                } else {
-                    $inactiveUsers++;
-                }
 
                 if (in_array($username, $activeUsernames)) {
                     $onlineUsers++;
@@ -498,10 +489,7 @@ class MikroTikService
 
             return [
                 'total_users' => $totalUsers,
-                'active_users' => $activeUsers,
-                'inactive_users' => $inactiveUsers,
                 'online_users' => $onlineUsers,
-                // 'users_created_today' => $usersCreatedToday,
                 'most_used_profile' => $mostUsedProfile,
                 'top_profiles_by_user_count' => $topProfiles,
             ];

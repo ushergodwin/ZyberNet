@@ -31,7 +31,7 @@ class PaymentService
 
         try {
             $response = Http::withToken(config('services.cinemaug.token'))
-                ->post('https://cinemaug.com/payments/collect.php', $payload);
+                ->post(config('services.cinemaug.api_url'), $payload);
 
             Log::info('📡 Payment API Response', [
                 'status' => $response->status(),
@@ -94,7 +94,7 @@ class PaymentService
     {
 
         $response = Http::withToken(config('services.cinemaug.token'))
-            ->get('https://cinemaug.com/payments/collect.php?id=' . $id);
+            ->get(config('services.cinemaug.api_url') . '?id=' . $id);
 
         if (!$response->successful()) {
             return ['message' => 'Payment request failed'];

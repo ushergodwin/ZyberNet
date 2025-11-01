@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\RouterConfiguration;
 use App\Models\Transaction;
-use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherPackage;
 use App\Services\MikroTikService;
@@ -14,47 +13,70 @@ use Illuminate\Support\Facades\Log;
 
 class ReportsController extends Controller
 {
-    //
-
-    // get statistics data 
     public function getStatistics(Request $request)
     {
-        $routerId = $request->router_id ?? 1;
+        $routerId = $request->router_id ?? null;
+        $dateFrom = $request->date_from;
+        $dateTo = $request->date_to;
+        $allTime = $request->all ?? false; // if true, ignore date filters
 
-        // Base successful filter (reuse via clones)
+        // Determine date range if not all-time
+        if (!$allTime) {
+            if ($dateFrom && $dateTo) {
+                // Custom date range
+                try {
+                    $start = now()->parse($dateFrom)->startOfDay();
+                    $end   = now()->parse($dateTo)->endOfDay();
+                } catch (\Exception $e) {
+                    return response()->json(['error' => 'Invalid date format. Use YYYY-MM-DD'], 400);
+                }
+            } else {
+                // Default: current month
+                $start = now()->startOfMonth();
+                $end   = now()->endOfMonth();
+            }
+        }
+
+        // Base transaction query (successful only)
         $base = Transaction::where('status', 'successful')
-            ->when($routerId, fn($q) => $q->where('router_id', $routerId));
+            ->when($routerId, fn($q) => $q->where('router_id', $routerId))
+            ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]));
 
-        // Revenues (positives only)
-        $totalRevenue        = (clone $base)->where('amount', '>', 0)->sum('amount');
-        $cashRevenue         = (clone $base)->where('channel', 'cash')->where('amount', '>', 0)->sum('amount');
-        $mobileMoneyRevenue  = (clone $base)->where('channel', 'mobile_money')->where('amount', '>', 0)->sum('amount');
+        // Revenues (positives)
+        $totalRevenue = (clone $base)->where('amount', '>', 0)->sum('amount');
+        $cashRevenue = (clone $base)->where('channel', 'cash')->where('amount', '>', 0)->sum('amount');
+        $mobileMoneyRevenue = (clone $base)->where('channel', 'mobile_money')->where('amount', '>', 0)->sum('amount');
 
-        // Withdrawals (negatives only) and balance
-        $totalWithdrawalsRaw = (clone $base)->where('amount', '<', 0)->sum('amount');
-        $totalWithdrawals    = abs($totalWithdrawalsRaw);
-        $balance             = $totalRevenue - $totalWithdrawals;
+        // Withdrawals (negatives)
+        $totalWithdrawals = abs((clone $base)->where('amount', '<', 0)->sum('amount'));
+        $balance = $totalRevenue - $totalWithdrawals;
 
-        // Helper to format once (force float, set separators)
         $fmt = fn($n) => number_format((float)$n, 2, '.', ',');
 
-        $statistics = [
-            'total_vouchers' => Voucher::withTrashed()->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
-            'expired_vouchers' => Voucher::withTrashed()->where('expires_at', '<', now())->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
-            'total_packages' => VoucherPackage::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
-            'active_routers' => RouterConfiguration::when($routerId, fn($q) => $q->where('id', $routerId))->count(),
-            'transactions' => Transaction::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
-            'successful_transactions' => Transaction::where('status', 'successful')->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
-            'failed_transactions' => Transaction::where('status', 'failed')->when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+        // Vouchers
+        $voucherBase = Voucher::withTrashed()
+            ->when($routerId, fn($q) => $q->where('router_id', $routerId))
+            ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]));
 
-            // Format ONCE here; no intval anywhere
-            'cash_revenue'          => $fmt($cashRevenue) . ' UGX',
-            'mobile_money_revenue'  => $fmt($mobileMoneyRevenue) . ' UGX',
-            'total_revenue'         => $fmt($totalRevenue) . ' UGX',
-            'total_withdrawals'     => $fmt($totalWithdrawals) . ' UGX',
-            'balance'               => $fmt($balance) . ' UGX',
+        $statistics = [
+            'total_vouchers' => $voucherBase->count(),
+            'expired_vouchers' => (clone $voucherBase)->where('expires_at', '<', now())->count(),
+            'total_packages' => VoucherPackage::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
+            'transactions' => Transaction::when($routerId, fn($q) => $q->where('router_id', $routerId))
+                ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]))->count(),
+            'successful_transactions' => (clone $base)->count(),
+            'failed_transactions' => Transaction::where('status', 'failed')
+                ->when($routerId, fn($q) => $q->where('router_id', $routerId))
+                ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]))->count(),
+
+            'cash_revenue' => $fmt($cashRevenue) . ' UGX',
+            'mobile_money_revenue' => $fmt($mobileMoneyRevenue) . ' UGX',
+            'total_revenue' => $fmt($totalRevenue) . ' UGX',
+            'total_withdrawals' => $fmt($totalWithdrawals) . ' UGX',
+            'balance' => $fmt($balance) . ' UGX',
         ];
 
+        // Router stats
         $routerStats = [];
         if ($routerId) {
             $router = RouterConfiguration::find($routerId);
@@ -72,6 +94,7 @@ class ReportsController extends Controller
         if (hasPermission('view_revenue_stats')) {
             $finalStats = array_merge($statistics, $routerStats);
         }
+
         return response()->json($finalStats);
     }
 }
