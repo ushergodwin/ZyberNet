@@ -42,5 +42,6 @@ return [
     ],
     'cinemaug' => [
         'token' => env('CINEMAUG_API_TOKEN'),
+        'api_url' => env('CINEMAUG_API_URL'),
     ],
 ];
