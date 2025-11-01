@@ -21,16 +21,18 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
-            # Mark repo as safe to avoid dubious ownership errors
+            # Ensure repository is marked safe for git
             git config --global --add safe.directory /var/www/superspotwifi
-            #Stash any changes that may prevent pulling
-            git -C /var/www/superspotwifi stash save
-            #Drop the stash
-            git -C /var/www/superspotwifi stash drop
-            # Pull latest code safely using absolute path
+
+            # Make sure the deploy user owns the repo to prevent future warnings
+            chown -R $USER:$USER /var/www/superspotwifi
+
+            # Pull latest code safely
+            git -C /var/www/superspotwifi reset --hard
+            git -C /var/www/superspotwifi clean -fd
             git -C /var/www/superspotwifi pull origin main
-            
-            # Start/update Docker containers
+
+            # Start or update Docker containers
             docker compose -f /var/www/superspotwifi/docker-compose.yml up -d
 
             # Fix Laravel, Node, and Vite permissions
@@ -43,19 +45,16 @@ jobs:
               done
             '
 
-            # Install Composer dependencies if vendor folder missing
-            docker exec -u root superspotwifi-app sh -c '
-              composer install --no-interaction --optimize-autoloader
-            '
+            # Install Composer dependencies
+            docker exec -u root superspotwifi-app composer install --no-interaction --optimize-autoloader
 
-            # Run Laravel migrations
+            # Run Laravel migrations and optimize
             docker exec -u root superspotwifi-app php artisan migrate --force
-            # Clear and cache Laravel config and routes
             docker exec -u root superspotwifi-app php artisan optimize:clear
             docker exec -u root superspotwifi-app php artisan config:cache
             docker exec -u root superspotwifi-app php artisan route:cache 
-            # Install Node.js dependencies if node_modules folder missing
+
+            # Install Node.js dependencies and build assets
             docker exec -u root superspotwifi-app npm install
-            # Build front-end assets
             docker exec -u root superspotwifi-app npm run build
           EOF

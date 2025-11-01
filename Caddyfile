@@ -13,3 +13,19 @@ hotspot.superspotwifi.net {
         -Server
     }
 }
+
+payments.superspotwifi.net {
+    root * /var/www/payment-gateway
+    php_fastcgi payment-gateway-app:9100
+    encode gzip
+    file_server
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "accelerometer=(), camera=(), geolocation=(), microphone=()"
+        -Server
+    }
+}
