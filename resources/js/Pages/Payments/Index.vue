@@ -31,6 +31,7 @@ const state = reactive({
     dateFrom: '',
     dateTo: '',
     currentUser: null,
+    loadingRouters: false,
 });
 
 // ------------------------- LOAD PAYMENTS -------------------------
@@ -85,9 +86,15 @@ const applyFilters = () => {
 
 // ------------------------- LOAD ROUTERS -------------------------
 const loadRouters = () => {
+    state.loadingRouters = true;
     axios.get('/api/configuration/routers?no_paging=true')
         .then(response => {
             state.routers = response.data;
+            if (!state.selectedRouterId && state.routers.length > 0) {
+                state.selectedRouterId = state.routers[0].id;
+            }
+            state.loadingRouters = false;
+            loadPayments(1);
         })
         .catch(error => {
             swalNotification('error', error.response?.data?.message || 'Failed to load routers.');
@@ -112,8 +119,6 @@ onMounted(() => {
     // Initialize flatpickr for date filters
     flatpickr("#dateFrom", { dateFormat: "Y-m-d", onChange: ([selectedDate]) => { state.dateFrom = selectedDate ? selectedDate.toISOString().split('T')[0] : ''; applyFilters(); } });
     flatpickr("#dateTo", { dateFormat: "Y-m-d", onChange: ([selectedDate]) => { state.dateTo = selectedDate ? selectedDate.toISOString().split('T')[0] : ''; applyFilters(); } });
-
-    loadPayments(1);
     loadRouters();
     emitter.on('search', handleSearch);
 });
@@ -285,8 +290,12 @@ const generateVoucher = async (payment_id: number) => {
                 </tbody>
             </table>
 
-            <div v-if="state.loading" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
-            <div v-if="!state.payments.length && !state.loading" class="text-danger text-center my-3">
+            <div v-if="state.loadingRouters" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading
+                routers...</div>
+            <div v-if="state.loading" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading
+                transactions...</div>
+            <div v-if="!state.payments.length && !state.loading && !state.loadingRouters"
+                class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No payments found." }}
             </div>
         </div>

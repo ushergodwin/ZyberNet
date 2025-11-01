@@ -101,6 +101,8 @@ class VoucherController extends Controller
         $request->validate([
             'package_id' => 'required|exists:voucher_packages,id',
             'quantity'   => 'required|integer|min:1',
+            'voucher_format' => 'required|in:n,l,nl',
+            'voucher_length' => 'required|integer|min:4|max:6'
         ]);
 
         $package = VoucherPackage::with('router')->findOrFail($request->input('package_id'));
@@ -114,7 +116,7 @@ class VoucherController extends Controller
             $unit = substr($session_timeout, -1);
 
             $expiresAt = now()->add($unit === 'd' ? "{$duration} days" : "{$duration} hours");
-            $code = strtoupper(Str::random(6));
+            $code = VoucherService::generateVoucherCode($request->voucher_length, $request->voucher_format);
             $voucherDataList[] = [
                 'code'            => $code,
                 'package_id'      => $package->id,
@@ -229,7 +231,6 @@ class VoucherController extends Controller
                 'deleted' => $result['deleted'],
                 'failed' => $result['failed'],
             ]);
-
         } catch (\Throwable $e) {
             Log::error('Failed to delete vouchers: ' . $e->getMessage());
             return response()->json([
@@ -238,5 +239,4 @@ class VoucherController extends Controller
             ], 500);
         }
     }
-
 }

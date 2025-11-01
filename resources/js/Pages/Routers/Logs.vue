@@ -22,7 +22,8 @@ const state = reactive({
     searchQuery: '',
     routers: [],
     selectedRouter: null,
-    selectedRouterId: 1,
+    selectedRouterId: null,
+    loadingRouters: false,
 });
 
 const loadRouterLogs = (page) => {
@@ -72,8 +73,13 @@ const handlePageChange = (page) => {
 // load routers
 const loadRouters = async () => {
     try {
+        state.loadingRouters = true;
         const response = await axios.get('/api/configuration/routers?no_paging=true');
         state.routers = response.data;
+        if (!state.selectedRouterId && state.routers.length > 0) {
+            state.selectedRouterId = state.routers[0].id;
+        }
+        state.loadingRouters = false;
     } catch (error) {
         console.error('Failed to load routers:', error);
     }
@@ -92,8 +98,8 @@ onMounted(() => {
     if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    loadRouterLogs(1);
-    loadRouters();
+    loadRouters()
+        .then(() => loadRouterLogs(1));
     emitter.on('search', handleSearch);
 });
 onUnmounted(() => {
@@ -142,9 +148,13 @@ onUnmounted(() => {
             </table>
             <!-- Loading and error handling -->
             <div v-if="state.loading" class="text-center my-3">
-                <i class="fas fa-spinner fa-spin"></i> Loading...
+                <i class="fas fa-spinner fa-spin"></i> Loading logs...
             </div>
-            <div v-if="!state.routerLogs.length" class="text-danger text-center my-3">
+            <div v-if="state.loadingRouters" class="text-center my-3">
+                <i class="fas fa-spinner fa-spin"></i> Loading routers...
+            </div>
+            <div v-if="!state.routerLogs.length && !state.loading && !state.loadingRouters"
+                class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No router logs found." }}
             </div>
             <!-- build pages -->
