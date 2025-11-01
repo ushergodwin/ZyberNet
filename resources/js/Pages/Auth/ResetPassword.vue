@@ -69,3 +69,55 @@ const submit = () => {
         </section>
     </section>
 </template>
+
+<style scoped>
+.login-bg {
+    background: linear-gradient(135deg, #5327ef 0%, #ff5f6d 100%) !important;
+    background-attachment: fixed;
+}
+
+.login-card-wrapper {
+    max-width: 400px;
+    width: 100%;
+    padding: 2rem 0;
+}
+
+.login-card {
+    background: #0d0c20;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    color: #fff;
+}
+
+.logo {
+    width: 100px;
+}
+
+.input-rounded {
+    border-radius: 30px;
+    padding: 0.5rem 1rem;
+}
+
+.btn-gradient {
+    background: linear-gradient(90deg, #00f0ff, #ff00c8);
+    border: none;
+    border-radius: 30px;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-gradient:hover {
+    opacity: 0.9;
+}
+
+@media (max-width: 600px) {
+    .login-card-wrapper {
+        padding: 1rem 0;
+    }
+
+    .login-card {
+        padding: 1.25rem 1rem;
+    }
+}
+</style>
