@@ -28,8 +28,7 @@
                         <label for="password" class="form-label">
                             Password &nbsp;
                             <a href="javascript:void(0)" @click="togglePassword" class="text-light">
-                                <i :key="passwordInputType"
-                                    :class="['fas', passwordInputType === 'password' ? 'fa-eye' : 'fa-eye-slash']">
+                                <i :class="['fas', passwordInputType === 'password' ? 'fa-eye' : 'fa-eye-slash']">
                                 </i>
                             </a>
 
