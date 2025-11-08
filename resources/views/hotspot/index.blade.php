@@ -127,6 +127,12 @@
                 grid-template-columns: 1fr 1fr 1fr;
             }
         }
+        .btn-buy.disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            pointer-events: auto; /* allow clicking to trigger alert */
+        }
+
     </style>
 </head>
 <body>
@@ -173,7 +179,12 @@
         <div class="plan">
             <h3>{{ $plan->name }}</h3>
             <p><strong>UGX {{ number_format($plan->price, 0) }}</strong></p>
-            <a class="btn-buy" href="{{ url('buy-voucher/' . $plan->id) }}">Buy Now</a>
+
+            @if ($plan->price <= 500)
+                <a href="#" class="btn-buy disabled" data-price="{{ $plan->price }}">Buy Now</a>
+            @else
+                <a href="{{ url('buy-voucher/' . $plan->id) }}" class="btn-buy" data-price="{{ $plan->price }}">Buy Now</a>
+            @endif
         </div>
         @endforeach
     </div>
@@ -183,18 +194,25 @@
     &copy; {{ date('Y') }} SuperSpot Wifi. Powered by <a href="#">Eng. Godwin</a>.
 </footer>
 
-    <script>
-        function openWhatsAppLink(whatsappUrl){
-            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-            if (/android/i.test(userAgent)) {
-                window.location.href = whatsappUrl;
-            } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-                window.location.href = whatsappUrl;
-            } else {
-                window.open(whatsappUrl, '_blank');
-            }
+<script>
+    function openWhatsAppLink(whatsappUrl){
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        if (/android/i.test(userAgent)) {
+            window.location.href = whatsappUrl;
+        } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+            window.location.href = whatsappUrl;
+        } else {
+            window.open(whatsappUrl, '_blank');
         }
-    </script>
-
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.btn-buy.disabled').forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault();
+                alert('This plan can only be purchased physically. Please visit the office counter to buy a voucher.');
+            });
+        });
+    });
+</script>
 </body>
 </html>
