@@ -218,10 +218,17 @@
     background-color: #00f0ff;
     color: #0d0c20;
 }
-        .pay-btn:active {
+.pay-btn:active {
             background-color: #00c0cc;
             color: #0d0c20;
-        }
+}
+
+.pay-btn.disabled {
+    background-color: #555;
+    border-color: #555;
+    color: #ccc;
+    cursor: not-allowed;
+}
     </style>
 </head>
 <body>
@@ -262,8 +269,13 @@
                         <tr>
                             <td>{{ $item->name }}</td>
                             <td>
+                                @if($item->price <= 500)
+                                    <a href="#" class="pay-btn disabled" data-price="{{ $item->price }}">Pay</a>
+                                @else
                                 <a href="{{ url('buy-voucher/' . $item->id )}}" class="pay-btn">Pay</a>
                                 UGX {{ number_format($item->price, 0) }}
+                                @endif
+                                
                             </td>
                         </tr>
                     @endforeach
@@ -310,6 +322,15 @@
                 window.open(whatsappUrl, '_blank');
             }
         }
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.pay-btn.disabled').forEach(function(button) {
+                button.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    alert('This plan can only be purchased physically. Please visit the office counter to buy a voucher.');
+                });
+            });
+        });
+
     </script>
 </body>
 </html>
