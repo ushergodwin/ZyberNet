@@ -32,7 +32,7 @@ class VoucherPackage extends Model
 
     public function getFormattedPriceAttribute()
     {
-        return number_format($this->price, 2) . ' UGX';
+        return number_format($this->price, 2);
     }
 
     public function getFormattedLimitBytesTotalAttribute()

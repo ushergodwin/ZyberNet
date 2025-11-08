@@ -2,6 +2,7 @@
 
 use App\Models\RouterConfiguration;
 use Spatie\Permission\Models\Permission;
+use App\Models\TransactionCharge;
 
 if (!function_exists('hasPermission')) {
     /**

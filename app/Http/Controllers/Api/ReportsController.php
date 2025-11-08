@@ -44,6 +44,8 @@ class ReportsController extends Controller
 
         // Revenues (positives)
         $totalRevenue = (clone $base)->where('amount', '>', 0)->sum('amount');
+        // total charges
+        $totalCharges = (clone $base)->where('amount', '>', 0)->sum('charge');
         $cashRevenue = (clone $base)->where('channel', 'cash')->where('amount', '>', 0)->sum('amount');
         $mobileMoneyRevenue = (clone $base)->where('channel', 'mobile_money')->where('amount', '>', 0)->sum('amount');
 
@@ -73,6 +75,7 @@ class ReportsController extends Controller
             'mobile_money_revenue' => $fmt($mobileMoneyRevenue) . ' UGX',
             'total_revenue' => $fmt($totalRevenue) . ' UGX',
             'total_withdrawals' => $fmt($totalWithdrawals) . ' UGX',
+            'total_charges' => $fmt($totalCharges) . ' UGX',
             'balance' => $fmt($balance) . ' UGX',
         ];
 
