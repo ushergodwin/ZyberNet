@@ -66,13 +66,13 @@ class ReportsController extends Controller
             'total_packages' => VoucherPackage::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
             'transactions' => Transaction::when($routerId, fn($q) => $q->where('router_id', $routerId))
                 ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]))->count(),
-            'successful_transactions' => (clone $base)->count(),
-            'failed_transactions' => Transaction::where('status', 'failed')
+            'successful_txn' => (clone $base)->count(),
+            'failed_tnx' => Transaction::where('status', 'failed')
                 ->when($routerId, fn($q) => $q->where('router_id', $routerId))
                 ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]))->count(),
 
             'cash_revenue' => $fmt($cashRevenue) . ' UGX',
-            'mobile_money_revenue' => $fmt($mobileMoneyRevenue) . ' UGX',
+            'mm_revenue' => $fmt($mobileMoneyRevenue) . ' UGX',
             'total_revenue' => $fmt($totalRevenue) . ' UGX',
             'total_withdrawals' => $fmt($totalWithdrawals) . ' UGX',
             'total_charges' => $fmt($totalCharges) . ' UGX',
