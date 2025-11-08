@@ -391,26 +391,23 @@ class MikroTikService
                 if (isset($found[0]['.id'])) {
                     $removeQuery = (new Query('/ip/hotspot/user/remove'))->equal('.id', $found[0]['.id']);
                     $this->client->query($removeQuery)->read();
+                    $expiredUsernames[] = $voucher->code;
                 }
-
-                $expiredUsernames[] = $voucher->code;
             }
 
             if (!empty($expiredUsernames)) {
                 Voucher::whereIn('code', $expiredUsernames)->delete();
-
+                RouterLog::create([
+                    'voucher_id' => null,
+                    'action' => 'remove_expired_hotspot_users',
+                    'success' => true,
+                    'message' => "Removed expired hotspot users: " . implode(', ', $expiredUsernames),
+                    'is_manual' => false,
+                    'router_name' => $this->router->name ?? 'Unknown Router',
+                    'router_id' => $this->router->id ?? null,
+                ]);
                 Log::info("Deleted expired vouchers: " . implode(', ', $expiredUsernames));
             }
-
-            RouterLog::create([
-                'voucher_id' => null,
-                'action' => 'remove_expired_hotspot_users',
-                'success' => true,
-                'message' => "Removed expired hotspot users: " . implode(', ', $expiredUsernames),
-                'is_manual' => false,
-                'router_name' => $this->router->name ?? 'Unknown Router',
-                'router_id' => $this->router->id ?? null,
-            ]);
         } catch (\Throwable $th) {
             Log::error('Failed to remove expired hotspot users: ' . $th->getMessage(), [
                 'trace' => $th->getTrace(),
