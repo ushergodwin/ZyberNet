@@ -260,7 +260,7 @@ const generateVoucher = async (payment_id: number) => {
                         <th>Phone No.</th>
                         <th>Package</th>
                         <th>Price (UGX)</th>
-                        <th>-Charge (UGX)</th>
+                        <th>Charge (UGX)</th>
                         <th>Amount Paid (UGX)</th>
                         <th>Voucher</th>
                         <th>Status</th>
@@ -273,7 +273,7 @@ const generateVoucher = async (payment_id: number) => {
                         <td>{{ payment.phone_number }}</td>
                         <td>{{ payment.package?.name || 'WTH' }}</td>
                         <td>{{ payment.package?.formatted_price }}</td>
-                        <td>{{ payment.formatted_charge }}</td>
+                        <td>-{{ payment.formatted_charge }}</td>
                         <td>{{ payment.formatted_amount }}</td>
                         <td>{{ payment.voucher?.code }}</td>
                         <td>
