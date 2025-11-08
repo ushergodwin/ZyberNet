@@ -129,7 +129,6 @@ onUnmounted(() => {
                         <th>Action</th>
                         <th>Success</th>
                         <th>Message</th>
-                        <th>Voucher</th>
                         <th>Logged At</th>
                     </tr>
                 </thead>
@@ -141,8 +140,7 @@ onUnmounted(() => {
                                 : 'No' }}</span>
                         </td>
                         <td>{{ log.message }}</td>
-                        <td>{{ log.voucher ?? 'N/A' }}</td>
-                        <td>{{ formatDate(log.created_at) }}</td>
+                        <td>{{ formatDate(log.created_at, 'DD MMM YYYY') }}</td>
                     </tr>
                 </tbody>
             </table>
