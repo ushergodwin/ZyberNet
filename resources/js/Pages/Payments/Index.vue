@@ -246,16 +246,22 @@ const generateVoucher = async (payment_id: number) => {
                 @click="() => { state.statusFilter = ''; state.dateFrom = ''; state.dateTo = ''; applyFilters(); }">
                 Reset Filters
             </button>
+            <!-- fresh -->
+            <button class="btn btn-primary" @click="loadPayments(1)">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
         </div>
 
         <!-- Payments Table -->
-        <div class="card card-body shadow">
-            <table class="table table-striped table-hover" v-if="state.payments.length">
+        <div class="card card-body shadow table-responsive" style="overflow-x: auto; max-width: 100%;">
+            <table class="table table-striped" style="min-width: 1200px; width: auto;" v-if="state.payments.length">
                 <thead>
                     <tr>
-                        <th>Phone Number</th>
-                        <th>Amount</th>
+                        <th>Phone No.</th>
                         <th>Package</th>
+                        <th>Price (UGX)</th>
+                        <th>-Charge (UGX)</th>
+                        <th>Amount Paid (UGX)</th>
                         <th>Voucher</th>
                         <th>Status</th>
                         <th>Created</th>
@@ -265,14 +271,16 @@ const generateVoucher = async (payment_id: number) => {
                 <tbody>
                     <tr v-for="payment in state.payments" :key="payment.id">
                         <td>{{ payment.phone_number }}</td>
-                        <td>{{ payment.formatted_amount }}</td>
                         <td>{{ payment.package?.name || 'WTH' }}</td>
+                        <td>{{ payment.package?.formatted_price }}</td>
+                        <td>{{ payment.formatted_charge }}</td>
+                        <td>{{ payment.formatted_amount }}</td>
                         <td>{{ payment.voucher?.code }}</td>
                         <td>
                             <span :class="`badge bg-${payment.status === 'successful' ? 'success' : 'danger'}`">{{
                                 payment.status }}</span>
                         </td>
-                        <td>{{ formatDate(payment.created_at) }}</td>
+                        <td>{{ formatDate(payment.created_at, 'DD MMM YYYY') }}</td>
                         <td>
                             <button class="btn btn-success btn-sm" @click="checkTransactionStatus(payment.payment_id)"
                                 v-if="payment.channel === 'mobile_money' && ['new', 'instructions_sent', 'pending', 'processing_started'].includes(payment.status) && hasPermission('check_payment_status', state.currentUser?.permissions_list)">
@@ -283,7 +291,7 @@ const generateVoucher = async (payment_id: number) => {
                                 <i class="fas fa-print"></i> Generate Voucher
                             </button>
                             <span v-else>
-                                <i class="fas fa-check-circle text-success"></i> No action needed
+                                <i class="fas fa-ban text-danger"></i>
                             </span>
                         </td>
                     </tr>

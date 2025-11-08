@@ -122,8 +122,8 @@ onUnmounted(() => {
             </select>
         </div>
         <!-- Your page content here -->
-        <div class="card card-body shadow">
-            <table class="table table-striped table-hover" v-if="state.routerLogs.length">
+        <div class="card card-body shadow table-responsive" style="overflow-x: auto; max-width: 100%;">
+            <table class="table table-striped" style="min-width: 1200px; width: auto;" v-if="state.routerLogs.length">
                 <thead>
                     <tr>
                         <th>Action</th>

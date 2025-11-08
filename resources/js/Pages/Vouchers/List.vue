@@ -539,8 +539,8 @@ const deleteSelectedVouchers = () => {
         </div>
 
         <!-- Vouchers Table -->
-        <div class="card card-body shadow">
-            <table class="table table-striped table-hover" v-if="state.vouchers.length">
+        <div class="card card-body shadow table-responsive" style="overflow-x: auto; max-width: 100%;">
+            <table class="table table-striped" style="min-width: 1200px; width: auto;" v-if="state.vouchers.length">
                 <thead>
                     <tr>
                         <th>Code</th>
@@ -657,7 +657,7 @@ const deleteSelectedVouchers = () => {
                                 <select v-model="state.form.package_id" class="form-select input-rounded">
                                     <option value="" disabled> -- select a plan --</option>
                                     <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">{{ pkg.name
-                                        }} - {{ pkg.formatted_price }}</option>
+                                    }} - {{ pkg.formatted_price }}</option>
                                 </select>
                             </div>
                             <div class="col-md-3 mb-3">

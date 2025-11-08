@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Models\VoucherPackage;
 use App\Models\Transaction;
+use App\Models\TransactionCharge;
 use App\Models\Voucher;
 use App\Services\VoucherService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class PaymentService
 {
@@ -21,22 +21,12 @@ class PaymentService
      * @param string $voucher_code
      * @return array
      */
-    public static function processPayment(array $payload, VoucherPackage $package, string $voucher_code = ''): array
+    public static function processPayment(array $payload, VoucherPackage $package, object $chargeDetails, string $voucher_code = '',): array
     {
-        Log::info('🚀 Starting processPayment', [
-            'payload' => $payload,
-            'package_id' => $package->id,
-            'voucher_code' => $voucher_code
-        ]);
 
         try {
             $response = Http::withToken(config('services.cinemaug.token'))
                 ->post(config('services.cinemaug.api_url'), $payload);
-
-            Log::info('📡 Payment API Response', [
-                'status' => $response->status(),
-                'body'   => $response->body(),
-            ]);
 
             if (!$response->successful()) {
                 return [
@@ -46,7 +36,6 @@ class PaymentService
             }
 
             $paymentData = $response->json();
-            Log::info('✅ Parsed Payment Data', $paymentData);
 
             $transaction = Transaction::create([
                 'phone_number'  => $paymentData['contact']['phone_number'] ?? null,
@@ -59,9 +48,9 @@ class PaymentService
                 'response_json' => json_encode($paymentData),
                 'channel'       => 'mobile_money',
                 'router_id'     => $package->router_id,
+                'charge'        => $chargeDetails->charge,
+                'total_amount'  => ($chargeDetails->total + $chargeDetails->charge),
             ]);
-
-            Log::info('💾 Transaction created', ['transaction_id' => $transaction->id]);
 
             if ($voucher_code) {
                 $voucher = Voucher::where('code', $voucher_code)->first();
@@ -90,7 +79,7 @@ class PaymentService
     }
 
     // check payment status
-    public static function checkPaymentStatus(int $id, Transaction $transaction, bool $generate_voucher = true, string $voucher_code = '')
+    public static function checkPaymentStatus(int $id, Transaction $transaction, bool $generate_voucher = true, mixed $voucher_code = '')
     {
 
         $response = Http::withToken(config('services.cinemaug.token'))
@@ -140,5 +129,41 @@ class PaymentService
         }
         $transaction->save();
         return $voucher;
+    }
+
+
+
+    /**
+     * Get the applicable charge for a transaction
+     * 
+     * @param int $amount Transaction amount in UGX
+     * @param string $network Network provider (MTN or AIRTEL)
+     * @return float|int Charge amount
+     */
+    static function getTransactionCharge(int $amount, string $network)
+    {
+        $chargeConfig = TransactionCharge::where('network', $network)
+            ->where('min_amount', '<=', $amount)
+            ->where('max_amount', '>=', $amount)
+            ->first();
+
+        return $chargeConfig ? $chargeConfig->charge : 0;
+    }
+
+    /**
+     * Calculate total amount - charges
+     * 
+     * @param int $amount Base transaction amount
+     * @param string $network Network provider
+     * @return object ['charge' => float, 'total' => float]
+     */
+    static function calculateTotalWithCharge(int $amount, string $network)
+    {
+        $charge = self::getTransactionCharge($amount, $network);
+
+        return (object)[
+            'charge' => $charge,
+            'total' => $amount > 500 ? $amount - $charge : $amount,
+        ];
     }
 }

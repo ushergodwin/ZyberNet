@@ -219,7 +219,6 @@ class VoucherController extends Controller
             if ($vouchers->isEmpty()) {
                 return response()->json([
                     'message' => 'No matching vouchers found',
-                    'requested' => $voucherCodes
                 ], 404);
             }
 
@@ -234,7 +233,7 @@ class VoucherController extends Controller
         } catch (\Throwable $e) {
             Log::error('Failed to delete vouchers: ' . $e->getMessage());
             return response()->json([
-                'message' => 'Failed to delete vouchers. Kindly contant IT for support!',
+                'message' => 'Failed to delete vouchers. Kindly contact IT for support!',
                 'error' => $e->getMessage(),
             ], 500);
         }

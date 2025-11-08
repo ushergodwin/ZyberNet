@@ -70,6 +70,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/support-contacts', [ConfigurationController::class, 'saveSupportContact'])->name('configuration.saveSupportContacts');
         //delete support contact
         Route::delete('/support-contacts/{id}', [ConfigurationController::class, 'deleteSupportContact'])->name('configuration.deleteSupportContact');
+
+
+        // Transaction Charges
+        Route::prefix('/transaction-charges')->group(function () {
+
+            Route::get('/', [App\Http\Controllers\Api\TransactionChargeController::class, 'index'])->name('configuration.transactionCharges');
+            Route::get('/{id}', [App\Http\Controllers\Api\TransactionChargeController::class, 'show'])->name('configuration.transactionCharge');
+            Route::post('/', [App\Http\Controllers\Api\TransactionChargeController::class, 'store'])->name('configuration.createTransactionCharge');
+            Route::put('/{id}', [App\Http\Controllers\Api\TransactionChargeController::class, 'update'])->name('configuration.updateTransactionCharge');
+            Route::delete('/{id}', [App\Http\Controllers\Api\TransactionChargeController::class, 'destroy'])->name('configuration.deleteTransactionCharge');
+            // Calculate charge
+            Route::post('/transaction-charges/calculate', [App\Http\Controllers\Api\TransactionChargeController::class, 'calculateCharge'])->name('configuration.calculateCharge');
+        });
     });
 
     Route::prefix('/vouchers')->group(function () {

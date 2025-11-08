@@ -24,10 +24,14 @@ class Transaction extends Model
         'response_json',
         'channel',
         'router_id',
+        'charge',
+        'total_amount',
     ];
 
     protected $appends = [
-        'formatted_amount'
+        'formatted_amount',
+        'formatted_charge',
+        'formatted_total_amount',
     ];
     public function package()
     {
@@ -36,7 +40,7 @@ class Transaction extends Model
 
     public function getFormattedAmountAttribute()
     {
-        return number_format($this->amount, 2) . ' ' . $this->currency;
+        return number_format($this->amount, 2);
     }
 
     public function router()
@@ -47,5 +51,15 @@ class Transaction extends Model
     public function voucher()
     {
         return $this->hasOne(Voucher::class)->withTrashed();
+    }
+
+    public function getFormattedChargeAttribute()
+    {
+        return number_format($this->charge, 2);
+    }
+
+    public function getFormattedTotalAmountAttribute()
+    {
+        return number_format($this->total_amount, 2);
     }
 }

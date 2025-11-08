@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\NetworkDetector;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\VoucherPackage;
@@ -34,15 +35,22 @@ class PaymentController extends Controller
                 return response()->json(['message' => 'Invalid phone number format'], 202);
             }
 
+            $network = NetworkDetector::detectNetwork($phoneNumber);
+            if (!$network) {
+                return response()->json(['message' => 'Could not detect network from phone number'], 202);
+            }
+
+            $chargeDetails = PaymentService::calculateTotalWithCharge($package->price, $network);
+
             // Prepare payment payload
             $payload = [
                 'phone_number' => $phoneNumber,
-                'amount'       => $package->price,
+                'amount'       => $chargeDetails->total,
                 'currency'     => 'UGX',
             ];
 
             // Make payment request
-            $paymentData = PaymentService::processPayment($payload, $package, $voucher_code);
+            $paymentData = PaymentService::processPayment($payload, $package, $chargeDetails, $voucher_code);
             return response()->json([
                 'message'     => 'A payment prompt has been sent to your phone. Please enter your pin to complete the payment and an SMS with a voucher will be sent to you in less than 2 minutes.',
                 'paymentData' => $paymentData,

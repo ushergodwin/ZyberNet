@@ -148,6 +148,15 @@ export const formatDate = (date = "", format = "MMM Do YY") => {
     return moment(date).format(format);
 };
 
+// format number to currency
+export const formatCurrency = (amount = 0, currency = "UGX") => {
+    // add commas to the amount with 2 decimal places
+    return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currency,
+    }).format(amount);
+};
+
 export const periodAgo = (date) => {
     if (!date.trim()) {
         return "";
