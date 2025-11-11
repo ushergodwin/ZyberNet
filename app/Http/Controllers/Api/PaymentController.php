@@ -323,6 +323,7 @@ class PaymentController extends Controller
                 'currency' => 'required|string|max:3',
                 'status' => 'required|string|in:pending,successful,failed',
                 'router_id' => 'required|exists:router_configurations,id',
+                'created_at' => 'nullable|date',
             ]);
 
             // generate a unique payment ID, only digits, 8 characters long prefix ME
@@ -337,6 +338,7 @@ class PaymentController extends Controller
                 'package_id' => null,
                 'channel' => 'mobile_money',
                 'router_id' => $request->input('router_id'),
+                'created_at' => $request->input('created_at') ? Carbon::parse($request->input('created_at')) : now(),
             ];
 
             $transaction = new Transaction($transactionData);
