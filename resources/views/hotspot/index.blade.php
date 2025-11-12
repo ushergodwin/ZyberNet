@@ -182,6 +182,7 @@
 
             @if ($plan->price <= 500)
                 <a href="#" class="btn-buy disabled" data-price="{{ $plan->price }}">Buy Now</a>
+                UGX {{ number_format($item->price, 0) }}
             @else
                 <a href="{{ url('buy-voucher/' . $plan->id) }}" class="btn-buy" data-price="{{ $plan->price }}">Buy Now</a>
             @endif
