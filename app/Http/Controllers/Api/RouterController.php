@@ -65,9 +65,9 @@ class RouterController extends Controller
         if (!hasPermission('view_router_logs')) {
             return response()->json(['message' => 'You are not authorized to view router logs. Please contact system admin.'], 401);
         }
-        $start = now()->startOfMonth();
-        $end   = now()->endOfMonth();
-        $logs = RouterLog::whereBetween('created_at', [$start, $end])->when($request->has('search'), function ($query) use ($request) {
+        $start = $request->from ? $request->from : now()->startOfWeek();
+        $end   = $request->to ? $request->to : now();
+        $logs = RouterLog::orderBy('id', 'desc')->whereBetween('created_at', [$start, $end])->when($request->has('search'), function ($query) use ($request) {
             $query->where('message', 'like', '%' . $request->search . '%')
                 //action
                 ->orWhere('action', 'like', '%' . $request->search . '%');
