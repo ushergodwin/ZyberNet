@@ -83,6 +83,12 @@ Route::middleware('auth:sanctum')->group(function () {
             // Calculate charge
             Route::post('/transaction-charges/calculate', [App\Http\Controllers\Api\TransactionChargeController::class, 'calculateCharge'])->name('configuration.calculateCharge');
         });
+
+        //wireguard configurations
+        Route::prefix('/wireguard')->group(function () {
+            // add peer
+            Route::post('/peers', [App\Http\Controllers\Api\WireguardController::class, 'addPeer'])->name('configuration.addWireguardPeer');
+        });
     });
 
     Route::prefix('/vouchers')->group(function () {

@@ -337,13 +337,20 @@ class PaymentController extends Controller
                 'mfscode' => uniqid('MW'),
                 'package_id' => null,
                 'channel' => 'mobile_money',
-                'router_id' => $request->input('router_id'),
-                'created_at' => $request->input('created_at') ? Carbon::parse($request->input('created_at')) : now(),
+                'router_id' => $request->input('router_id')
             ];
 
             $transaction = new Transaction($transactionData);
             $transaction->save();
 
+            // update created_at if provided
+            if ($request->filled('created_at')) {
+                $transaction->created_at = Carbon::parse($request->input('created_at'));
+                $transaction->save();
+            }
+
+            // fetch the newly created transaction
+            $transaction = Transaction::where('id', $transaction->id)->first();
             return response()->json([
                 'message' => 'Transaction saved successfully',
                 'transaction' => $transaction,
