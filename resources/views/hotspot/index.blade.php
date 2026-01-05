@@ -184,7 +184,7 @@
                 <a href="#" class="btn-buy disabled" data-price="{{ $plan->price }}">Buy Now</a>
                 UGX {{ number_format($item->price, 0) }}
             @else
-                <a href="{{ url('buy-voucher/' . $plan->id) }}" class="btn-buy" data-price="{{ $plan->price }}">Buy Now</a>
+                <a href="{{ url('buy-voucher/' . $plan->id) }}" class="btn-buy disabled" data-price="{{ $plan->price }}">Buy Now</a>
             @endif
         </div>
         @endforeach
@@ -210,7 +210,7 @@
         document.querySelectorAll('.btn-buy.disabled').forEach(function(button) {
             button.addEventListener('click', function(event) {
                 event.preventDefault();
-                alert('This plan can only be purchased physically. Please visit the office counter to buy a voucher.');
+                alert('Mobile Money is not supported for this plan. Please visit the shop counter to buy a voucher or call the support phone numbers for assistance.');
             });
         });
     });
