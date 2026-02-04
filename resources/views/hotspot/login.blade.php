@@ -273,7 +273,7 @@
                                     <a href="#" class="pay-btn disabled" data-price="{{ $item->price }}">Pay</a>
                                     UGX {{ number_format($item->price, 0) }}
                                 @else
-                                <a href="{{ url('buy-voucher/' . $item->id )}}" class="pay-btn disabled">Pay</a>
+                                <a href="{{ url('buy-voucher/' . $item->id )}}" class="pay-btn">Pay</a>
                                 UGX {{ number_format($item->price, 0) }}
                                 @endif
                                 
