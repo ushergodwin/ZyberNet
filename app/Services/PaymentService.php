@@ -128,6 +128,7 @@ class PaymentService
             $voucher = $transaction->voucher;
         }
         $transaction->save();
+        $transaction->delete();
         return $voucher;
     }
 

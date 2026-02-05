@@ -75,7 +75,7 @@ class PaymentController extends Controller
             $voucher_code = request()->input('voucher_code', '');
             $generate_voucher = request()->input('generate_voucher', true);
             // Check if transaction exists
-            $transaction = Transaction::where('payment_id', $id)->with(['package', 'voucher'])->first();
+            $transaction = Transaction::withTrashed()->where('payment_id', $id)->with(['package', 'voucher'])->first();
             if (!$transaction) {
                 return response()->json(['message' => 'Transaction not found'], 202);
             }
