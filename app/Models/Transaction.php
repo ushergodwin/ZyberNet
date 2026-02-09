@@ -26,6 +26,7 @@ class Transaction extends Model
         'router_id',
         'charge',
         'total_amount',
+        'gateway',
     ];
 
     protected $appends = [

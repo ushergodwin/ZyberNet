@@ -27,6 +27,13 @@
                 <i class="fas fa-money-check-dollar me-2"></i> Payments
             </a>
 
+            <!-- Payment Testing (Admin) -->
+            <a class="nav-link" href="#" @click="goTo('admin.payment-test')"
+                :class="{ active: isActive(['admin.payment-test']) }"
+                v-if="hasPermission('test_payments', currentUser?.permissions_list)">
+                <i class="fas fa-flask me-2"></i> Payment Test
+            </a>
+
             <!-- Router Collapse -->
             <div v-if="hasPermission('view_router', currentUser?.permissions_list)">
                 <button class="btn btn-toggle w-100 text-start" data-bs-toggle="collapse"

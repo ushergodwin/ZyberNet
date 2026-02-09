@@ -25,3 +25,5 @@ Homestead.yaml
 Thumbs.db
 /id_rsa_superspot
 /id_rsa_superspot.pub
+/.claude
+.claude/settings.local.json
