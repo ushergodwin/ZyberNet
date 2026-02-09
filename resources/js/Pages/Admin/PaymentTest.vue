@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from "vue";
+import { ref, reactive, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import { swalNotification, hasPermission } from "@/mixins/helpers.mixin.js";
@@ -49,7 +49,10 @@ const state = reactive({
     activeTab: 'payment',
 });
 
-// Track active poll timers by result index
+// Unique ID counter for test results
+let resultIdCounter = 0;
+
+// Track active poll timers by result _id
 const pollTimers = ref<Record<number, ReturnType<typeof setInterval>>>({});
 
 const canTestPayments = computed(() => {
@@ -87,8 +90,8 @@ const isTerminal = (status: string) => {
     return status === 'successful' || status === 'failed';
 };
 
-const isPolling = (index: number) => {
-    return !!pollTimers.value[index];
+const isPolling = (id: number) => {
+    return !!pollTimers.value[id];
 };
 
 // Load gateway info
@@ -118,10 +121,10 @@ const loadPackages = async () => {
     }
 };
 
-function stopPollingResult(index: number) {
-    if (pollTimers.value[index]) {
-        clearInterval(pollTimers.value[index]);
-        delete pollTimers.value[index];
+function stopPollingResult(id: number) {
+    if (pollTimers.value[id]) {
+        clearInterval(pollTimers.value[id]);
+        delete pollTimers.value[id];
     }
 }
 
@@ -132,9 +135,11 @@ function stopAllPolling() {
     pollTimers.value = {};
 }
 
-// Start auto-polling for a test result
-function startPollingResult(index: number) {
-    const result = state.testResults[index];
+// Start auto-polling for a test result by its unique _id
+function startPollingResult(id: number) {
+    const result = state.testResults.find((r: any) => r._id === id);
+    if (!result) return;
+
     const reference = result.payment_id || result.payment_data?.id || result.transaction_id;
     if (!reference) return;
 
@@ -154,37 +159,34 @@ function startPollingResult(index: number) {
             const txnStatus = response.data.transaction?.status || response.data.status;
 
             // Update the result in-place
-            state.testResults[index] = {
-                ...state.testResults[index],
-                status: txnStatus,
-                pollingStatus: statusLabels[txnStatus] || 'Processing...',
-                lastChecked: new Date().toISOString(),
-                gateway: response.data.gateway || state.testResults[index].gateway,
-                mfscode: response.data.transaction?.mfscode || state.testResults[index].mfscode,
-            };
+            result.status = txnStatus;
+            result.pollingStatus = statusLabels[txnStatus] || 'Processing...';
+            result.lastChecked = new Date().toISOString();
+            result.gateway = response.data.gateway || result.gateway;
+            result.mfscode = response.data.transaction?.mfscode || result.mfscode;
 
             if (isTerminal(txnStatus)) {
-                stopPollingResult(index);
-                state.testResults[index].pollingStatus = null;
+                stopPollingResult(id);
+                result.pollingStatus = null;
                 return;
             }
 
             if (elapsed >= timeoutDuration) {
-                stopPollingResult(index);
-                state.testResults[index].pollingStatus = null;
-                state.testResults[index].pollingTimedOut = true;
+                stopPollingResult(id);
+                result.pollingStatus = null;
+                result.pollingTimedOut = true;
             }
         } catch (err) {
             if (elapsed >= timeoutDuration) {
-                stopPollingResult(index);
-                state.testResults[index].pollingStatus = null;
-                state.testResults[index].pollingTimedOut = true;
+                stopPollingResult(id);
+                result.pollingStatus = null;
+                result.pollingTimedOut = true;
             }
         }
     }
 
     pollOnce(); // Check immediately
-    pollTimers.value[index] = setInterval(pollOnce, pollingInterval);
+    pollTimers.value[id] = setInterval(pollOnce, pollingInterval);
 }
 
 // Test payment (no voucher)
@@ -200,6 +202,7 @@ const testPayment = async () => {
         const response = await axios.post('/api/admin/test/payment', state.paymentForm);
 
         const result = {
+            _id: ++resultIdCounter,
             type: 'payment',
             ...response.data,
             timestamp: new Date().toISOString(),
@@ -212,8 +215,8 @@ const testPayment = async () => {
         state.testResults.unshift(result);
 
         if (response.data.success) {
-            // Start auto-polling for this result (index 0 since we unshifted)
-            startPollingResult(0);
+            await nextTick();
+            startPollingResult(result._id);
         } else {
             swalNotification('error', response.data.message || 'Payment test failed');
         }
@@ -240,6 +243,7 @@ const testVoucherPurchase = async () => {
         const selectedPackage = state.packages.find(p => p.id == state.voucherForm.package_id);
 
         const result = {
+            _id: ++resultIdCounter,
             type: 'voucher',
             ...response.data,
             timestamp: new Date().toISOString(),
@@ -252,7 +256,8 @@ const testVoucherPurchase = async () => {
         state.testResults.unshift(result);
 
         if (response.data.success) {
-            startPollingResult(0);
+            await nextTick();
+            startPollingResult(result._id);
         } else {
             swalNotification('error', response.data.message || 'Voucher purchase test failed');
         }
@@ -265,7 +270,7 @@ const testVoucherPurchase = async () => {
 };
 
 // Manual check payment status (for the button)
-const checkPaymentStatus = async (result: any, index: number) => {
+const checkPaymentStatus = async (result: any) => {
     const reference = result.payment_id || result.payment_data?.id || result.transaction_id;
     if (!reference) {
         swalNotification('error', 'No payment reference found');
@@ -280,8 +285,8 @@ const checkPaymentStatus = async (result: any, index: number) => {
     }
 
     // If not already polling, start polling
-    if (!isPolling(index)) {
-        startPollingResult(index);
+    if (!isPolling(result._id)) {
+        startPollingResult(result._id);
     }
 };
 
@@ -475,7 +480,7 @@ onUnmounted(() => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="(result, index) in state.testResults" :key="index">
+                                <tr v-for="result in state.testResults" :key="result._id">
                                     <td>
                                         <span :class="result.type === 'payment' ? 'badge bg-info' : 'badge bg-success'">
                                             {{ result.type === 'payment' ? 'Payment' : 'Voucher' }}
@@ -494,7 +499,7 @@ onUnmounted(() => {
                                     </td>
                                     <td>
                                         <!-- Polling state: show spinner + live status -->
-                                        <span v-if="isPolling(index)" class="d-flex align-items-center gap-2">
+                                        <span v-if="isPolling(result._id)" class="d-flex align-items-center gap-2">
                                             <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
                                             <small class="text-primary fw-bold">{{ result.pollingStatus }}</small>
                                         </span>
@@ -513,10 +518,10 @@ onUnmounted(() => {
                                     <td>
                                         <button
                                             class="btn btn-sm btn-outline-primary"
-                                            @click="checkPaymentStatus(result, index)"
-                                            :disabled="isPolling(index)"
+                                            @click="checkPaymentStatus(result)"
+                                            :disabled="isPolling(result._id)"
                                             title="Check Status">
-                                            <i class="fas fa-sync-alt" :class="{ 'fa-spin': isPolling(index) }"></i>
+                                            <i class="fas fa-sync-alt" :class="{ 'fa-spin': isPolling(result._id) }"></i>
                                         </button>
                                     </td>
                                 </tr>
