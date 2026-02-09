@@ -24,12 +24,44 @@ class PaymentService
     public static function processPayment(array $payload, VoucherPackage $package, object $chargeDetails, string $voucher_code = ''): array
     {
         try {
+            // Prevent duplicate transactions: check for a recent non-terminal transaction
+            // from the same phone number + package within the last 5 minutes
+            $phoneNumber = $payload['phone_number'] ?? null;
+            if ($phoneNumber) {
+                $recentTransaction = Transaction::where('phone_number', $phoneNumber)
+                    ->where('package_id', $package->id)
+                    ->whereNotIn('status', ['failed'])
+                    ->where('created_at', '>=', now()->subMinutes(5))
+                    ->latest()
+                    ->first();
+
+                if ($recentTransaction) {
+                    Log::info('Duplicate payment blocked — returning existing transaction', [
+                        'phone' => $phoneNumber,
+                        'package_id' => $package->id,
+                        'existing_transaction_id' => $recentTransaction->id,
+                        'existing_status' => $recentTransaction->status,
+                    ]);
+
+                    return [
+                        'id' => $recentTransaction->payment_id,
+                        'phone_number' => $recentTransaction->phone_number,
+                        'amount' => $recentTransaction->amount,
+                        'currency' => $recentTransaction->currency ?? 'UGX',
+                        'status' => $recentTransaction->status,
+                        'mfscode' => $recentTransaction->mfscode,
+                        'contact' => ['phone_number' => $recentTransaction->phone_number],
+                        '_gateway' => $recentTransaction->gateway,
+                    ];
+                }
+            }
+
             $gateway = PaymentGatewayFactory::make();
             $gatewayName = $gateway->getName();
 
             Log::info('Processing payment via gateway', [
                 'gateway' => $gatewayName,
-                'phone' => $payload['phone_number'] ?? 'unknown',
+                'phone' => $phoneNumber ?? 'unknown',
                 'amount' => $payload['amount'] ?? 0,
             ]);
 
