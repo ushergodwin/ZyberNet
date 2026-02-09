@@ -156,9 +156,9 @@ class PaymentTestController extends Controller
             ], 403);
         }
 
-        // Try to find transaction by payment_id first, then by id
+        // Find transaction by payment_id, or by numeric id
         $transaction = Transaction::where('payment_id', $reference)
-            ->orWhere('id', $reference)
+            ->when(ctype_digit((string) $reference), fn($q) => $q->orWhere('id', $reference))
             ->with(['package', 'voucher'])
             ->first();
 
@@ -174,8 +174,11 @@ class PaymentTestController extends Controller
             $gateway = PaymentGatewayFactory::make($transaction->gateway);
             $gatewayResponse = $gateway->checkPaymentStatus((string) $transaction->payment_id);
 
-            // Update transaction if gateway returned new status
-            if (($gatewayResponse['success'] ?? false) && isset($gatewayResponse['status'])) {
+            // Update transaction if gateway returned new status,
+            // but never overwrite terminal states (successful/failed)
+            $isTerminal = in_array($transaction->status, ['successful', 'failed']);
+
+            if (($gatewayResponse['success'] ?? false) && isset($gatewayResponse['status']) && !$isTerminal) {
                 $transaction->status = $gatewayResponse['status'];
                 $transaction->response_json = json_encode($gatewayResponse['raw_response'] ?? $gatewayResponse);
 

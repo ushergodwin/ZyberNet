@@ -1,8 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
-import { showLoader, hideLoader, swalNotification } from '@/mixins/helpers.mixin.js';
+import { swalNotification } from '@/mixins/helpers.mixin.js';
 import { notify } from '@/mixins/notify';
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 defineOptions({ layout: AdminLayout });
@@ -25,38 +25,48 @@ const props = defineProps({
         default: () => []
     },
 });
+
 const phoneNumber = ref('');
 const transactionId = ref(null);
 const voucher = ref(null);
 const checkingStatus = ref(false);
 const processingPayment = ref(false);
+const paymentStatus = ref('');
+const paymentFailed = ref(false);
+const paymentTimedOut = ref(false);
 let packageId = ref(props.package_id);
 const iHaveAVoucher = ref(false);
 const userVoucherCode = ref('');
+let pollTimer = null;
+
+const statusLabels = {
+    new: 'Payment initiated...',
+    pending: 'Waiting for confirmation...',
+    instructions_sent: 'Please enter your PIN on your phone...',
+    processing_started: 'Processing your payment...',
+    successful: 'Payment successful!',
+    failed: 'Payment failed.',
+};
+
 const formatPhoneNumber = (number) => {
-    // Format phone number to international format if needed
-    /// if the number starts with 0, replace it with +256
     if (number.startsWith('0')) {
         return '+256' + number.slice(1);
     }
-    // if phone number starts with 256 but not +256, replace it with +256
     if (number.startsWith('256') && !number.startsWith('+256')) {
         return '+256' + number.slice(3);
     }
-    // if phone number does not start with +256 or 256 or 0 and is 9 digits long, prepend +256
     if (!number.startsWith('+256') && !number.startsWith('256') && !number.startsWith('0') && number.length === 9) {
         return '+256' + number;
     }
-    // if phone number is already in international format, return it as is
     return number;
 };
+
 async function purchaseVoucher() {
     try {
         if (!phoneNumber.value) {
             swalNotification('warning', 'Please enter phone number');
             return;
         }
-        // phone number length must be >= 9 and <= 13
         if (phoneNumber.value.length < 9 || phoneNumber.value.length > 13) {
             swalNotification('warning', 'Phone number must be between 9 and 13 digits');
             return;
@@ -65,68 +75,118 @@ async function purchaseVoucher() {
             swalNotification('warning', 'No package was selected. Please select a package to continue.');
             return;
         }
-        // format phone number
+
         phoneNumber.value = formatPhoneNumber(phoneNumber.value);
         processingPayment.value = true;
-        showLoader();
+        paymentFailed.value = false;
+        paymentTimedOut.value = false;
+        paymentStatus.value = 'Initiating payment...';
+
         const payload = {
             phone_number: phoneNumber.value,
             package_id: packageId.value,
             voucher_code: iHaveAVoucher.value ? userVoucherCode.value : null,
         };
+
         const response = await axios.post('/api/payments/voucher', payload);
-        hideLoader();
-        swalNotification('success', response.data.message)
-            .then(() => {
-                transactionId.value = response.data.paymentData.id;
-                checkingStatus.value = true;
-                voucher.value = null; // Reset voucher
-                checkTransactionStatus(); // Start checking status
-            });
+
+        if (response.status === 200) {
+            transactionId.value = response.data.paymentData.id;
+            checkingStatus.value = true;
+            voucher.value = null;
+            paymentStatus.value = statusLabels['instructions_sent'];
+            checkTransactionStatus();
+        } else {
+            processingPayment.value = false;
+            paymentStatus.value = '';
+            swalNotification('error', 'Failed to initiate payment. Please try again.');
+        }
     } catch (error) {
-        hideLoader();
         processingPayment.value = false;
-        console.log(`Error purchasing voucher:`, error);
-        swalNotification('error', error.message || 'Payment failed');
+        paymentStatus.value = '';
+        swalNotification('error', error.response?.data?.message || error.message || 'Payment failed');
     }
 }
 
-// Check transaction status periodically
-function checkTransactionStatus() {
-    if (!transactionId.value) return;
-    checkingStatus.value = true;
-
-    const interval = setInterval(async () => {
-        try {
-            const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}?voucher_code=${userVoucherCode.value || ''}`);
-            if (response.data.voucher) {
-                clearInterval(interval);
-                voucher.value = response.data.voucher;
-                swalNotification('success', 'Voucher is ready!')
-                    .then(() => {
-                        checkingStatus.value = false;
-                        processingPayment.value = false;
-                        // submit the voucher code to the router login form
-                        document.getElementById('routerLoginForm').submit();
-                    });
-
-            }
-            // if transaction.status is 'failed', clear interval and show error
-            if (response.data.transaction?.status === 'failed') {
-                clearInterval(interval);
-                checkingStatus.value = false;
-                processingPayment.value = false;
-                swalNotification('error', 'Transaction failed. Please try again.');
-            }
-        } catch (err) {
-            clearInterval(interval);
-            checkingStatus.value = false;
-            swalNotification('error', 'Error checking transaction status',);
-        }
-    }, 5000);
+function stopPolling() {
+    if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+    }
 }
 
-// copy voucher code to clipboard
+function checkTransactionStatus() {
+    if (!transactionId.value) return;
+
+    checkingStatus.value = true;
+    const pollingInterval = 5000;
+    const timeoutDuration = 180000; // 3 minutes
+    let elapsed = 0;
+
+    pollOnce();
+    pollTimer = setInterval(pollOnce, pollingInterval);
+
+    async function pollOnce() {
+        elapsed += pollingInterval;
+
+        try {
+            const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}?voucher_code=${userVoucherCode.value || ''}`);
+            const transaction = response.data.transaction;
+            const voucherData = response.data.voucher;
+
+            if (transaction?.status) {
+                paymentStatus.value = statusLabels[transaction.status] || 'Processing...';
+            }
+
+            if (voucherData) {
+                stopPolling();
+                voucher.value = voucherData;
+                checkingStatus.value = false;
+                processingPayment.value = false;
+                paymentStatus.value = statusLabels['successful'];
+                swalNotification('success', 'Voucher is ready!')
+                    .then(() => {
+                        document.getElementById('routerLoginForm')?.submit();
+                    });
+                return;
+            }
+
+            if (transaction?.status === 'failed') {
+                stopPolling();
+                checkingStatus.value = false;
+                processingPayment.value = false;
+                paymentFailed.value = true;
+                paymentStatus.value = statusLabels['failed'];
+                return;
+            }
+
+            if (elapsed >= timeoutDuration) {
+                stopPolling();
+                checkingStatus.value = false;
+                processingPayment.value = false;
+                paymentTimedOut.value = true;
+                paymentStatus.value = 'Payment is taking too long.';
+            }
+        } catch (err) {
+            if (elapsed >= timeoutDuration) {
+                stopPolling();
+                checkingStatus.value = false;
+                processingPayment.value = false;
+                paymentTimedOut.value = true;
+                paymentStatus.value = 'Could not verify payment status.';
+            }
+        }
+    }
+}
+
+function retryPayment() {
+    paymentFailed.value = false;
+    paymentTimedOut.value = false;
+    paymentStatus.value = '';
+    transactionId.value = null;
+    voucher.value = null;
+}
+
 const copyVoucherCode = () => {
     if (voucher.value) {
         navigator.clipboard.writeText(voucher.value.code)
@@ -135,7 +195,6 @@ const copyVoucherCode = () => {
     }
 };
 
-// print voucher code
 const printVoucherCode = () => {
     if (voucher.value) {
         const printWindow = window.open('', '_blank');
@@ -160,11 +219,15 @@ const printVoucherCode = () => {
         printWindow.print();
     }
 };
+
 onMounted(() => {
     if (props.package_id) {
         packageId.value = props.package_id;
     }
+});
 
+onUnmounted(() => {
+    stopPolling();
 });
 </script>
 <template>
@@ -183,7 +246,7 @@ onMounted(() => {
         <!-- Voucher Card -->
         <div class="voucher-card p-4 w-100 text-white">
             <!-- Package Selection -->
-            <div class="mb-3">
+            <div class="mb-3" v-if="!checkingStatus && !paymentFailed && !paymentTimedOut">
                 <label class="form-label">Select Package</label>
                 <select v-model="packageId" class="form-select input-rounded" :disabled="processingPayment">
                     <option :value="null" disabled>Select a package</option>
@@ -193,18 +256,18 @@ onMounted(() => {
                 </select>
             </div>
             <!-- Phone Input -->
-            <div class="mb-3">
+            <div class="mb-3" v-if="!checkingStatus && !paymentFailed && !paymentTimedOut">
                 <label class="form-label">Phone Number</label>
                 <input type="text" v-model="phoneNumber" class="form-control input-rounded"
                     :disabled="processingPayment" placeholder="+2567XXXXXXXX" />
             </div>
-            <div class="form-check" v-if="!iHaveAVoucher">
+            <div class="form-check" v-if="!iHaveAVoucher && !checkingStatus && !paymentFailed && !paymentTimedOut">
                 <input type="checkbox" class="form-check-input" v-model="iHaveAVoucher" name="customCheck"
                     id="customCheck1">
                 <label class="form-check-label" for="customCheck1">I already have a voucher</label>
             </div>
             <!-- Voucher Code Input -->
-            <div class="mb-3" v-if="iHaveAVoucher">
+            <div class="mb-3" v-if="iHaveAVoucher && !checkingStatus && !paymentFailed && !paymentTimedOut">
                 <label class="form-label">Enter Voucher Code</label>
                 <div class="input-group">
                     <input type="text" v-model="userVoucherCode" class="form-control input-rounded"
@@ -213,20 +276,42 @@ onMounted(() => {
                         <i class="fas fa-exchange-alt"></i>
                     </button>
                 </div>
-
             </div>
             <!-- Submit Button -->
-            <div class="d-grid mt-3">
+            <div class="d-grid mt-3" v-if="!checkingStatus && !voucher && !paymentFailed && !paymentTimedOut">
                 <button class="btn btn-gradient text-white fw-bold" @click="purchaseVoucher"
                     :disabled="processingPayment">
-                    <i class="fas fa-wallet me-2"></i> Send Payment Prompt
+                    <span v-if="processingPayment" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <i v-else class="fas fa-wallet me-2"></i>
+                    {{ processingPayment ? 'Sending...' : 'Send Payment Prompt' }}
                 </button>
             </div>
 
-            <!-- Payment Spinner -->
+            <!-- Payment Status Progress -->
             <div v-if="checkingStatus" class="text-center mt-4">
-                <div class="spinner-border text-light" role="status"></div>
-                <p class="mt-2 small text-white-50">Waiting for payment confirmation...</p>
+                <div class="spinner-border text-light mb-3" role="status"></div>
+                <p class="fw-bold mb-1">{{ paymentStatus }}</p>
+                <p class="small text-white-50">Do not close or refresh this page.</p>
+            </div>
+
+            <!-- Payment Failed -->
+            <div v-if="paymentFailed" class="mt-4 text-center">
+                <p class="fw-bold text-danger">Payment Failed</p>
+                <p class="small text-white-50">The transaction could not be completed. Please try again.</p>
+                <button class="btn btn-gradient text-white fw-bold mt-2" @click="retryPayment">
+                    <i class="fas fa-redo me-2"></i> Try Again
+                </button>
+            </div>
+
+            <!-- Payment Timed Out -->
+            <div v-if="paymentTimedOut" class="mt-4 text-center">
+                <p class="fw-bold" style="color: #ffc107;">{{ paymentStatus }}</p>
+                <p class="small text-white-50">
+                    Please contact IT support for assistance. Your payment may still be processing.
+                </p>
+                <button class="btn btn-gradient text-white fw-bold mt-3" @click="retryPayment">
+                    <i class="fas fa-redo me-2"></i> Try Again
+                </button>
             </div>
 
             <!-- Voucher Code Result -->
@@ -239,12 +324,10 @@ onMounted(() => {
                     <p class="mb-0 mt-2 small">Expires at: {{ voucher?.expires_at ? new
                         Date(voucher.expires_at).toLocaleString() : '' }}</p>
                 </div>
-                <!-- print voucher code -->
                 <div class="d-flex justify-content-end mt-3 gap-3">
                     <button class="btn btn-outline-success btn-sm" @click="copyVoucherCode">
                         <i class="fas fa-copy"></i> Copy Code
                     </button>
-                    <!-- print code -->
                     <button class="btn btn-outline-success btn-sm ms-2" @click="printVoucherCode">
                         <i class="fas fa-print"></i> Print Voucher
                     </button>

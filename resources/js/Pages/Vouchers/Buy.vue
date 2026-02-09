@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
-import { showLoader, hideLoader, swalNotification } from '@/mixins/helpers.mixin.js';
+import { swalNotification } from '@/mixins/helpers.mixin.js';
 import { notify } from '@/mixins/notify';
+
 const props = defineProps({
     package_id: {
         type: Number,
@@ -30,36 +31,46 @@ const props = defineProps({
         default: () => []
     }
 });
+
 const phoneNumber = ref('');
 const transactionId = ref(null);
 const voucher = ref(null);
 const checkingStatus = ref(false);
 const processingPayment = ref(false);
+const paymentStatus = ref('');
+const paymentFailed = ref(false);
+const paymentTimedOut = ref(false);
 let packageId = ref(props.package_id);
+let pollTimer = null;
+
+const statusLabels = {
+    new: 'Payment initiated...',
+    pending: 'Waiting for confirmation...',
+    instructions_sent: 'Please enter your PIN on your phone...',
+    processing_started: 'Processing your payment...',
+    successful: 'Payment successful!',
+    failed: 'Payment failed.',
+};
+
 const formatPhoneNumber = (number) => {
-    // Format phone number to international format if needed
-    /// if the number starts with 0, replace it with +256
     if (number.startsWith('0')) {
         return '+256' + number.slice(1);
     }
-    // if phone number starts with 256 but not +256, replace it with +256
     if (number.startsWith('256') && !number.startsWith('+256')) {
         return '+256' + number.slice(3);
     }
-    // if phone number does not start with +256 or 256 or 0 and is 9 digits long, prepend +256
     if (!number.startsWith('+256') && !number.startsWith('256') && !number.startsWith('0') && number.length === 9) {
         return '+256' + number;
     }
-    // if phone number is already in international format, return it as is
     return number;
 };
+
 async function purchaseVoucher() {
     try {
         if (!phoneNumber.value) {
             swalNotification('warning', 'Please enter phone number');
             return;
         }
-        // phone number length must be >= 9 and <= 13
         if (phoneNumber.value.length < 9 || phoneNumber.value.length > 13) {
             swalNotification('warning', 'Phone number must be between 9 and 13 digits');
             return;
@@ -71,92 +82,112 @@ async function purchaseVoucher() {
                 });
             return;
         }
-        // format phone number
+
         const data = {
             phone_number: formatPhoneNumber(phoneNumber.value),
             package_id: packageId.value
-        }
+        };
+
         processingPayment.value = true;
-        showLoader();
+        paymentFailed.value = false;
+        paymentTimedOut.value = false;
+        paymentStatus.value = 'Initiating payment...';
+
         const response = await axios.post('/api/payments/voucher', data);
-        hideLoader();
+
         if (response.status === 200) {
-            swalNotification('success', response.data.message)
-                .then(() => {
-                    transactionId.value = response.data.paymentData.id;
-                    checkingStatus.value = true;
-                    voucher.value = null; // Reset voucher
-                    checkTransactionStatus(); // Start checking status
-                });
+            transactionId.value = response.data.paymentData.id;
+            checkingStatus.value = true;
+            voucher.value = null;
+            paymentStatus.value = statusLabels['instructions_sent'];
+            checkTransactionStatus();
         } else {
             processingPayment.value = false;
+            paymentStatus.value = '';
             swalNotification('error', 'Failed to initiate payment. Please try again.');
         }
     } catch (error) {
-        console.error('Payment error:', error);
+        processingPayment.value = false;
+        paymentStatus.value = '';
         swalNotification('error', error.response?.data?.message || 'Payment failed');
     }
 }
 
-// Check transaction status periodically
+function stopPolling() {
+    if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+    }
+}
+
 function checkTransactionStatus() {
     if (!transactionId.value) return;
 
     checkingStatus.value = true;
-    const pollingInterval = 10000; // 10 seconds
-    const timeoutDuration = 180000; // 3 minutes max
+    const pollingInterval = 5000; // 5 seconds
+    const timeoutDuration = 180000; // 3 minutes
     let elapsed = 0;
-    let interval = null;
 
-    // Start polling after initial delay
-    setTimeout(() => {
-        interval = setInterval(async () => {
-            elapsed += pollingInterval;
+    pollOnce(); // First check immediately
+    pollTimer = setInterval(pollOnce, pollingInterval);
 
-            try {
-                const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}`);
-                const transaction = response.data.transaction;
-                const voucherData = response.data.voucher;
+    async function pollOnce() {
+        elapsed += pollingInterval;
 
-                if (voucherData) {
-                    clearInterval(interval);
-                    checkingStatus.value = false;
-                    processingPayment.value = false;
-                    voucher.value = voucherData;
+        try {
+            const response = await axios.get(`/api/payments/voucher/status/${transactionId.value}`);
+            const transaction = response.data.transaction;
+            const voucherData = response.data.voucher;
 
-                    swalNotification('success', `Payment successful! An SMS with your Voucher has been sent to ${transaction.phone_number}`);
-                    return;
-                }
+            if (transaction?.status) {
+                paymentStatus.value = statusLabels[transaction.status] || 'Processing...';
+            }
 
-                if (transaction?.status === 'failed') {
-                    clearInterval(interval);
-                    checkingStatus.value = false;
-                    processingPayment.value = false;
-
-                    swalNotification('error', 'Transaction failed. Please try again.');
-                    return;
-                }
-
-                if (elapsed >= timeoutDuration) {
-                    clearInterval(interval);
-                    checkingStatus.value = false;
-                    processingPayment.value = false;
-
-                    swalNotification('warning', 'Payment taking too long. Please check later or contact support.');
-                }
-            } catch (err) {
-                clearInterval(interval);
+            if (voucherData) {
+                stopPolling();
                 checkingStatus.value = false;
                 processingPayment.value = false;
-
-                const errorMessage = err.response?.data?.message || 'Error checking transaction status';
-                swalNotification('error', errorMessage);
+                voucher.value = voucherData;
+                paymentStatus.value = statusLabels['successful'];
+                return;
             }
-        }, pollingInterval);
-    }, pollingInterval); // Initial delay
+
+            if (transaction?.status === 'failed') {
+                stopPolling();
+                checkingStatus.value = false;
+                processingPayment.value = false;
+                paymentFailed.value = true;
+                paymentStatus.value = statusLabels['failed'];
+                return;
+            }
+
+            if (elapsed >= timeoutDuration) {
+                stopPolling();
+                checkingStatus.value = false;
+                processingPayment.value = false;
+                paymentTimedOut.value = true;
+                paymentStatus.value = 'Payment is taking too long.';
+            }
+        } catch (err) {
+            if (elapsed >= timeoutDuration) {
+                stopPolling();
+                checkingStatus.value = false;
+                processingPayment.value = false;
+                paymentTimedOut.value = true;
+                paymentStatus.value = 'Could not verify payment status.';
+            }
+        }
+    }
 }
 
-// copy voucher code to clipboard
+function retryPayment() {
+    paymentFailed.value = false;
+    paymentTimedOut.value = false;
+    paymentStatus.value = '';
+    transactionId.value = null;
+    voucher.value = null;
+}
+
 const copyVoucherCode = () => {
     if (voucher.value) {
         navigator.clipboard.writeText(voucher.value.code)
@@ -165,10 +196,8 @@ const copyVoucherCode = () => {
     }
 };
 
-// connect to WiFi
 const connectToWiFi = () => {
     if (voucher.value?.code && props.link_login) {
-        // submit the voucher code to the router login form
         const form = document.getElementById('connect-to-wifi-form');
         form.username.value = voucher.value.code;
         form.password.value = voucher.value.code;
@@ -177,13 +206,15 @@ const connectToWiFi = () => {
         notify.toastErrorMessage('error', `Connect to ${props.wifi_name} and use your voucher to access the internet.`);
     }
 };
+
 onMounted(() => {
-    // transactionId.value = 64661480;
-    // checkTransactionStatus();
     if (props.package_id) {
         packageId.value = props.package_id;
     }
+});
 
+onUnmounted(() => {
+    stopPolling();
 });
 </script>
 <template>
@@ -212,27 +243,60 @@ onMounted(() => {
                 </select>
             </div>
             <!-- Phone Input -->
-            <div class="mb-3">
+            <div class="mb-3" v-if="!checkingStatus && !voucher && !paymentFailed && !paymentTimedOut">
                 <label class="form-label">Phone Number</label>
                 <input type="text" v-model="phoneNumber" class="form-control input-rounded"
                     :disabled="processingPayment" placeholder="+2567XXXXXXXX" />
             </div>
 
             <!-- Submit Button -->
-            <div class="d-grid" v-if="!checkingStatus && !voucher">
+            <div class="d-grid" v-if="!checkingStatus && !voucher && !paymentFailed && !paymentTimedOut">
                 <button class="btn btn-gradient text-white fw-bold" @click="purchaseVoucher"
                     :disabled="processingPayment">
-                    <i class="fas fa-wallet me-2"></i> Pay Now
+                    <span v-if="processingPayment" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <i v-else class="fas fa-wallet me-2"></i>
+                    {{ processingPayment ? 'Sending...' : 'Pay Now' }}
                 </button>
             </div>
 
-            <!-- Payment Spinner -->
+            <!-- Payment Status Progress -->
             <div v-if="checkingStatus" class="text-center mt-4">
-                <div class="spinner-border text-light" role="status"></div>
-                <p class="mt-2 small text-white-50">
-                    Waiting for payment confirmation. This mayS take some time. Please
-                    be patient and do not close or refresh this page.
+                <div class="spinner-border text-light mb-3" role="status"></div>
+                <p class="fw-bold mb-1">{{ paymentStatus }}</p>
+                <p class="small text-white-50">
+                    Do not close or refresh this page.
                 </p>
+            </div>
+
+            <!-- Payment Failed -->
+            <div v-if="paymentFailed" class="mt-4 text-center">
+                <div class="mb-2" style="font-size: 2.5rem;">&#10060;</div>
+                <p class="fw-bold text-danger">Payment Failed</p>
+                <p class="small text-white-50">The transaction could not be completed. Please try again.</p>
+                <button class="btn btn-gradient text-white fw-bold mt-2" @click="retryPayment">
+                    <i class="fas fa-redo me-2"></i> Try Again
+                </button>
+            </div>
+
+            <!-- Payment Timed Out -->
+            <div v-if="paymentTimedOut" class="mt-4 text-center">
+                <div class="mb-2" style="font-size: 2.5rem;">&#9888;&#65039;</div>
+                <p class="fw-bold" style="color: #ffc107;">{{ paymentStatus }}</p>
+                <p class="small text-white-50">
+                    Please contact IT support for assistance. Your payment may still be processing.
+                </p>
+                <div v-if="props.supportContacts?.length" class="small mt-2">
+                    <span v-for="contact in props.supportContacts?.filter(c => c.type == 'Tel')" :key="'to-' + contact?.id">
+                        Call <a :href="`tel:${contact?.formatted_phone_number}`" class="text-info">{{ contact?.phone_number }}</a>&nbsp;
+                    </span>
+                    <br />
+                    <span v-for="contact in props.supportContacts?.filter(c => c.type == 'WhatsApp')" :key="'wo-' + contact?.id">
+                        WhatsApp <a :href="`https://wa.me/${contact?.formatted_phone_number}`" target="_blank" class="text-info">{{ contact?.phone_number }}</a>&nbsp;
+                    </span>
+                </div>
+                <button class="btn btn-gradient text-white fw-bold mt-3" @click="retryPayment">
+                    <i class="fas fa-redo me-2"></i> Try Again
+                </button>
             </div>
 
             <!-- Voucher Code Result -->
@@ -244,12 +308,10 @@ onMounted(() => {
                     </div>
                     <p class="mb-0 mt-2 small">Expires at: {{ new Date(voucher.expires_at).toLocaleString() }}</p>
                 </div>
-                <!-- print voucher code -->
                 <div class="d-flex justify-content-end mt-3 gap-3">
                     <button class="btn btn-outline-primary btn-sm" @click="copyVoucherCode">
                         <i class="fas fa-copy"></i> Copy Voucher
                     </button>
-                    <!-- connect to WiFi -->
                     <button class="btn btn-outline-primary btn-sm ms-2" @click="connectToWiFi" v-if="props.link_login">
                         <i class="fas fa-print"></i> Connect to WiFi
                     </button>
