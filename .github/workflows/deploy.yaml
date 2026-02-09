@@ -21,23 +21,28 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
-            # Ensure repository is marked safe for git
-            git config --global --add safe.directory /var/www/superspotwifi
+            set -e
 
-            # Make sure the deploy user owns the repo to prevent future warnings
-            chown -R $USER:$USER /var/www/superspotwifi
+            APP_PATH=/var/www/superspotwifi
+            CONTAINER=superspotwifi-app
 
-            # Pull latest code safely
-            git -C /var/www/superspotwifi reset --hard
-            git -C /var/www/superspotwifi clean -fd
-            git -C /var/www/superspotwifi pull origin main
+            # Mark repo as safe
+            git config --global --add safe.directory $APP_PATH
 
-            # Start or update Docker containers
-            docker compose -f /var/www/superspotwifi/docker-compose.yml up -d
+            # Ensure ownership
+            chown -R $USER:$USER $APP_PATH
 
-            # Fix Laravel, Node, and Vite permissions
-            docker exec -u root superspotwifi-app sh -c '
-              for dir in storage bootstrap/cache node_modules .vite-temp public/build; do
+            # Pull latest code
+            git -C $APP_PATH reset --hard
+            git -C $APP_PATH clean -fd
+            git -C $APP_PATH pull origin main
+
+            # Start containers
+            docker compose -f $APP_PATH/docker-compose.yml up -d
+
+            # Fix permissions (root needed)
+            docker exec -u root $CONTAINER sh -c '
+              for dir in storage bootstrap/cache node_modules public/build; do
                 if [ -d "$dir" ]; then
                   chown -R www-data:www-data "$dir"
                   chmod -R 775 "$dir"
@@ -45,15 +50,17 @@ jobs:
               done
             '
 
-            # Install Composer dependencies
-            docker exec -u root superspotwifi-app composer install --no-interaction --optimize-autoloader
+            # Composer (safe as root inside container)
+            docker exec -u root $CONTAINER composer install \
+              --no-interaction \
+              --prefer-dist \
+              --optimize-autoloader
 
-            # Run Laravel migrations and optimize
-            docker exec -u root superspotwifi-app php artisan migrate --force
-            docker exec -u root superspotwifi-app php artisan db:seed --force --class=PaymentTestPermissionsSeeder
-            docker exec -u root superspotwifi-app php artisan optimize:clear
+            # Database & Laravel optimizations
+            docker exec -u root $CONTAINER php artisan migrate --force
+            docker exec -u root $CONTAINER php artisan optimize:clear
 
-            # Install Node.js dependencies and build assets
-            docker exec -u root superspotwifi-app npm install
-            docker exec -u root superspotwifi-app npm run build
+            # Frontend build (deterministic)
+            docker exec -u root $CONTAINER npm ci
+            docker exec -u root $CONTAINER npm run build
           EOF
