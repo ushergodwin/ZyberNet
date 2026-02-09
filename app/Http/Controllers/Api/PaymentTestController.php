@@ -170,7 +170,46 @@ class PaymentTestController extends Controller
         }
 
         try {
-            // Use the gateway that originally processed this transaction
+            $hasPackage = !empty($transaction->package_id);
+
+            if ($hasPackage) {
+                // Voucher purchase: delegate to PaymentService which handles voucher generation
+                $result = PaymentService::checkPaymentStatus(
+                    $transaction->payment_id,
+                    $transaction,
+                    true // generate_voucher
+                );
+
+                $transaction->refresh();
+
+                $voucher = null;
+                if ($result instanceof \App\Models\Voucher) {
+                    $voucher = $result;
+                } elseif ($transaction->voucher) {
+                    $voucher = $transaction->voucher;
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'gateway' => $transaction->gateway,
+                    'transaction' => [
+                        'id' => $transaction->id,
+                        'payment_id' => $transaction->payment_id,
+                        'phone_number' => $transaction->phone_number,
+                        'amount' => $transaction->amount,
+                        'status' => $transaction->status,
+                        'mfscode' => $transaction->mfscode,
+                        'created_at' => $transaction->created_at,
+                    ],
+                    'voucher' => $voucher ? [
+                        'code' => $voucher->code,
+                        'expires_at' => $voucher->expires_at,
+                        'is_used' => $voucher->is_used,
+                    ] : null,
+                ]);
+            }
+
+            // Plain test payment: check gateway directly (no voucher needed)
             $gateway = PaymentGatewayFactory::make($transaction->gateway);
             $gatewayResponse = $gateway->checkPaymentStatus((string) $transaction->payment_id);
 
@@ -201,11 +240,7 @@ class PaymentTestController extends Controller
                     'mfscode' => $transaction->mfscode,
                     'created_at' => $transaction->created_at,
                 ],
-                'voucher' => $transaction->voucher ? [
-                    'code' => $transaction->voucher->code,
-                    'expires_at' => $transaction->voucher->expires_at,
-                    'is_used' => $transaction->voucher->is_used,
-                ] : null,
+                'voucher' => null,
                 'gateway_response' => $gatewayResponse,
             ]);
         } catch (\Exception $e) {
