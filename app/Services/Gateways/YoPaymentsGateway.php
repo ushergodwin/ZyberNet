@@ -167,7 +167,7 @@ class YoPaymentsGateway implements PaymentGatewayInterface
         $request->addChild('APIUsername', $this->xmlEscape($this->apiUsername));
         $request->addChild('APIPassword', $this->xmlEscape($this->apiPassword));
         $request->addChild('Method', 'actransactioncheckstatus');
-        $request->addChild('PrivateTransactionReference', $this->xmlEscape($reference));
+        $request->addChild('TransactionReference', $this->xmlEscape($reference));
 
         return $xml->asXML();
     }
