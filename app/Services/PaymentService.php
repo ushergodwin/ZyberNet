@@ -114,6 +114,9 @@ class PaymentService
 
             $gatewayResponse = $gateway->checkPaymentStatus((string) $id);
 
+            // Don't overwrite terminal states (successful/failed) with gateway errors
+            $isTerminal = in_array($transaction->status, ['successful', 'failed']);
+
             if (!($gatewayResponse['success'] ?? false)) {
                 Log::error('Payment status check failed', [
                     'gateway' => $gateway->getName(),
@@ -121,11 +124,19 @@ class PaymentService
                     'error' => $gatewayResponse['error'] ?? 'Unknown error',
                 ]);
 
+                if ($isTerminal) {
+                    // Transaction already reached a final state — keep it as-is
+                    return $transaction->voucher;
+                }
+
                 return ['message' => 'Payment status check failed'];
             }
 
-            // Update transaction status from gateway response
-            $transaction->status = $gatewayResponse['status'] ?? $transaction->status;
+            // Only update status if the transaction hasn't already reached a terminal state
+            if (!$isTerminal) {
+                $transaction->status = $gatewayResponse['status'] ?? $transaction->status;
+            }
+
             $transaction->response_json = json_encode($gatewayResponse['raw_response'] ?? $gatewayResponse);
 
             // Update mfscode if provided
