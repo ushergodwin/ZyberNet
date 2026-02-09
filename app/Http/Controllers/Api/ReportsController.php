@@ -39,6 +39,7 @@ class ReportsController extends Controller
 
         // Base transaction query (successful only)
         $base = Transaction::where('status', 'successful')
+            ->where('gateway', 'yopayments')
             ->when($routerId, fn($q) => $q->where('router_id', $routerId))
             ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]));
 
