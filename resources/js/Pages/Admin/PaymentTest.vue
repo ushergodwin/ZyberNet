@@ -460,13 +460,8 @@ onUnmounted(() => {
                     </button>
                 </div>
                 <div class="card-body">
-                    <div v-if="!state.testResults.length" class="text-center text-muted py-4">
-                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-                        No test results yet. Run a test above to see results here.
-                    </div>
-
-                    <div v-else class="table-responsive">
-                        <table class="table table-hover">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
                             <thead>
                                 <tr>
                                     <th>Type</th>
@@ -480,6 +475,12 @@ onUnmounted(() => {
                                 </tr>
                             </thead>
                             <tbody>
+                                <tr v-if="!state.testResults.length">
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                        No test results yet. Run a test above to see results here.
+                                    </td>
+                                </tr>
                                 <tr v-for="result in state.testResults" :key="result._id">
                                     <td>
                                         <span :class="result.type === 'payment' ? 'badge bg-info' : 'badge bg-success'">
