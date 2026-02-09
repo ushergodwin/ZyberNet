@@ -23,8 +23,14 @@ class CinemaUGGateway implements PaymentGatewayInterface
     public function processPayment(array $payload): array
     {
         try {
+            // CinemaUG expects phone in +256XXXXXXXXX format
+            $phone = $payload['phone_number'];
+            if (!str_starts_with($phone, '+')) {
+                $phone = '+' . $phone;
+            }
+
             $requestPayload = [
-                'phone_number' => $payload['phone_number'],
+                'phone_number' => $phone,
                 'amount' => $payload['amount'],
                 'currency' => $payload['currency'] ?? 'UGX',
             ];

@@ -33,13 +33,12 @@ class PaymentTestController extends Controller
             'amount' => 'required|numeric|min:500',
         ]);
 
-        $phoneNumber = $validated['phone_number'];
-
-        // Validate phone number format (Ugandan numbers)
-        if (!preg_match('/^\+?256[0-9]{9}$/', $phoneNumber)) {
+        // Normalize phone number to 256XXXXXXXXX format
+        $phoneNumber = NetworkDetector::normalizePhoneNumber($validated['phone_number']);
+        if (!$phoneNumber) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid phone number format. Use format: 256XXXXXXXXX',
+                'message' => 'Invalid phone number format.',
             ], 422);
         }
 
@@ -85,13 +84,12 @@ class PaymentTestController extends Controller
             'package_id' => 'required|exists:voucher_packages,id',
         ]);
 
-        $phoneNumber = $validated['phone_number'];
-
-        // Validate phone number format
-        if (!preg_match('/^\+?256[0-9]{9}$/', $phoneNumber)) {
+        // Normalize phone number to 256XXXXXXXXX format
+        $phoneNumber = NetworkDetector::normalizePhoneNumber($validated['phone_number']);
+        if (!$phoneNumber) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid phone number format. Use format: 256XXXXXXXXX',
+                'message' => 'Invalid phone number format.',
             ], 422);
         }
 
