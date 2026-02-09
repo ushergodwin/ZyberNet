@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed, nextTick } from "vue";
+import { ref, reactive, onMounted, onUnmounted, computed } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import { swalNotification, hasPermission } from "@/mixins/helpers.mixin.js";
+import { swalNotification, hasPermission, showLoader, hideLoader } from "@/mixins/helpers.mixin.js";
+import Swal from "sweetalert2";
 import axios from "axios";
 
 defineOptions({ layout: AdminLayout });
@@ -10,50 +11,41 @@ defineOptions({ layout: AdminLayout });
 const statusLabels: Record<string, string> = {
     new: 'Payment initiated...',
     pending: 'Waiting for confirmation...',
-    instructions_sent: 'Enter your PIN on phone...',
-    processing_started: 'Processing payment...',
-    successful: 'Successful',
-    failed: 'Failed',
+    instructions_sent: 'Please enter your PIN on your phone...',
+    processing_started: 'Processing your payment...',
+    successful: 'Payment successful!',
+    failed: 'Payment failed.',
 };
 
 const state = reactive({
-    // Gateway info
     gatewayInfo: null as any,
     gatewayLoading: false,
 
-    // Test payment form
     paymentForm: {
         phone_number: '',
         amount: 5000,
     },
     paymentLoading: false,
 
-    // Voucher purchase test form
     voucherForm: {
         phone_number: '',
+        router_id: '',
         package_id: '',
     },
     voucherLoading: false,
 
-    // Available packages
+    routers: [] as any[],
+    routersLoading: false,
+
     packages: [] as any[],
     packagesLoading: false,
 
-    // Test results history
     testResults: [] as any[],
 
-    // Current user
     currentUser: null as any,
-
-    // Active tab
-    activeTab: 'payment',
 });
 
-// Unique ID counter for test results
-let resultIdCounter = 0;
-
-// Track active poll timers by result _id
-const pollTimers = ref<Record<number, ReturnType<typeof setInterval>>>({});
+let activePollTimer: ReturnType<typeof setInterval> | null = null;
 
 const canTestPayments = computed(() => {
     return hasPermission('test_payments', state.currentUser?.permissions_list);
@@ -86,13 +78,19 @@ const getStatusBadgeClass = (status: string) => {
     return classes[status] || 'bg-secondary';
 };
 
-const isTerminal = (status: string) => {
-    return status === 'successful' || status === 'failed';
-};
+function stopPolling() {
+    if (activePollTimer) {
+        clearInterval(activePollTimer);
+        activePollTimer = null;
+    }
+}
 
-const isPolling = (id: number) => {
-    return !!pollTimers.value[id];
-};
+function updateSwalContent(text: string) {
+    const content = Swal.getHtmlContainer();
+    if (content) {
+        content.textContent = text;
+    }
+}
 
 // Load gateway info
 const loadGatewayInfo = async () => {
@@ -108,12 +106,28 @@ const loadGatewayInfo = async () => {
     }
 };
 
-// Load voucher packages
-const loadPackages = async () => {
-    state.packagesLoading = true;
+// Load routers the user has access to
+const loadRouters = async () => {
+    state.routersLoading = true;
     try {
-        const response = await axios.get('/api/configuration/vouchers/packages');
-        state.packages = response.data.filter((p: any) => p.is_active);
+        const response = await axios.get('/api/configuration/routers', { params: { no_paging: true } });
+        state.routers = response.data;
+    } catch (error) {
+        console.error('Failed to load routers:', error);
+    } finally {
+        state.routersLoading = false;
+    }
+};
+
+// Load voucher packages for a specific router
+const loadPackages = async (routerId: string | number) => {
+    state.packagesLoading = true;
+    state.packages = [];
+    state.voucherForm.package_id = '';
+    try {
+        const response = await axios.get('/api/configuration/vouchers/packages', { params: { router_id: routerId } });
+        const packages = response.data.packages || response.data;
+        state.packages = (Array.isArray(packages) ? packages : []).filter((p: any) => p.is_active);
     } catch (error) {
         console.error('Failed to load packages:', error);
     } finally {
@@ -121,35 +135,35 @@ const loadPackages = async () => {
     }
 };
 
-function stopPollingResult(id: number) {
-    if (pollTimers.value[id]) {
-        clearInterval(pollTimers.value[id]);
-        delete pollTimers.value[id];
+// When router changes, reload packages
+const onRouterChange = (routerId: string | number) => {
+    if (routerId) {
+        loadPackages(routerId);
+    } else {
+        state.packages = [];
+        state.voucherForm.package_id = '';
     }
-}
+};
 
-function stopAllPolling() {
-    Object.keys(pollTimers.value).forEach(key => {
-        clearInterval(pollTimers.value[Number(key)]);
-    });
-    pollTimers.value = {};
-}
-
-// Start auto-polling for a test result by its unique _id
-function startPollingResult(id: number) {
-    const result = state.testResults.find((r: any) => r._id === id);
-    if (!result) return;
-
-    const reference = result.payment_id || result.payment_data?.id || result.transaction_id;
-    if (!reference) return;
-
+/**
+ * Poll payment status using SweetAlert for live feedback.
+ */
+function pollWithSwal(reference: string, type: 'payment' | 'voucher', resultIndex: number) {
     const pollingInterval = 5000;
     const timeoutDuration = 180000; // 3 minutes
     let elapsed = 0;
 
-    // Mark as polling
-    result.pollingStatus = statusLabels['instructions_sent'];
-    result.pollingTimedOut = false;
+    // Show the loading Swal
+    Swal.fire({
+        title: 'Payment prompt sent',
+        html: 'Please enter your PIN on your phone to confirm the transaction...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        },
+    });
 
     async function pollOnce() {
         elapsed += pollingInterval;
@@ -157,36 +171,79 @@ function startPollingResult(id: number) {
         try {
             const response = await axios.get(`/api/admin/test/payment/status/${reference}`);
             const txnStatus = response.data.transaction?.status || response.data.status;
+            const voucher = response.data.voucher;
 
-            // Update the result in-place
-            result.status = txnStatus;
-            result.pollingStatus = statusLabels[txnStatus] || 'Processing...';
-            result.lastChecked = new Date().toISOString();
-            result.gateway = response.data.gateway || result.gateway;
-            result.mfscode = response.data.transaction?.mfscode || result.mfscode;
+            // Update the history entry
+            state.testResults[resultIndex].status = txnStatus;
+            if (response.data.transaction?.mfscode) {
+                state.testResults[resultIndex].mfscode = response.data.transaction.mfscode;
+            }
 
-            if (isTerminal(txnStatus)) {
-                stopPollingResult(id);
-                result.pollingStatus = null;
+            // Update swal text with current status
+            updateSwalContent(statusLabels[txnStatus] || 'Processing...');
+
+            if (txnStatus === 'successful') {
+                stopPolling();
+
+                if (type === 'voucher' && voucher) {
+                    state.testResults[resultIndex].voucher = voucher;
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Payment Successful!',
+                        html: `
+                            <p>Transaction completed successfully.</p>
+                            <div style="background: #f0f9f0; border-radius: 8px; padding: 15px; margin-top: 10px;">
+                                <strong>Voucher Code:</strong>
+                                <div style="font-size: 1.5em; font-weight: bold; margin: 8px 0; letter-spacing: 2px;">${voucher.code}</div>
+                                <small>Expires: ${new Date(voucher.expires_at).toLocaleString()}</small>
+                            </div>
+                        `,
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Payment Successful!',
+                        html: `<p>Transaction completed successfully.</p>
+                               <p><small>MFS Code: ${response.data.transaction?.mfscode || 'N/A'}</small></p>`,
+                    });
+                }
+                return;
+            }
+
+            if (txnStatus === 'failed') {
+                stopPolling();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Payment Failed',
+                    html: 'The transaction could not be completed. Please try again.',
+                });
                 return;
             }
 
             if (elapsed >= timeoutDuration) {
-                stopPollingResult(id);
-                result.pollingStatus = null;
-                result.pollingTimedOut = true;
+                stopPolling();
+                state.testResults[resultIndex].status = 'timed_out';
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Payment Timed Out',
+                    html: 'The payment is taking too long. Please contact IT support for assistance. Your payment may still be processing.',
+                });
             }
         } catch (err) {
             if (elapsed >= timeoutDuration) {
-                stopPollingResult(id);
-                result.pollingStatus = null;
-                result.pollingTimedOut = true;
+                stopPolling();
+                state.testResults[resultIndex].status = 'timed_out';
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Payment Timed Out',
+                    html: 'Could not verify payment status. Please contact IT support.',
+                });
             }
         }
     }
 
     pollOnce(); // Check immediately
-    pollTimers.value[id] = setInterval(pollOnce, pollingInterval);
+    activePollTimer = setInterval(pollOnce, pollingInterval);
 }
 
 // Test payment (no voucher)
@@ -201,25 +258,29 @@ const testPayment = async () => {
     try {
         const response = await axios.post('/api/admin/test/payment', state.paymentForm);
 
-        const result = {
-            _id: ++resultIdCounter,
+        if (!response.data.success) {
+            swalNotification('error', response.data.message || 'Payment test failed');
+            return;
+        }
+
+        const reference = response.data.payment_id || response.data.transaction_id;
+
+        // Add to history
+        state.testResults.unshift({
             type: 'payment',
-            ...response.data,
             timestamp: new Date().toISOString(),
             phone_number: state.paymentForm.phone_number,
             amount: state.paymentForm.amount,
-            pollingStatus: null,
-            pollingTimedOut: false,
-        };
+            gateway: response.data.gateway,
+            status: response.data.status || 'pending',
+            payment_id: response.data.payment_id,
+            transaction_id: response.data.transaction_id,
+            mfscode: null,
+        });
 
-        state.testResults.unshift(result);
+        // Start SweetAlert polling
+        pollWithSwal(reference, 'payment', 0);
 
-        if (response.data.success) {
-            await nextTick();
-            startPollingResult(result._id);
-        } else {
-            swalNotification('error', response.data.message || 'Payment test failed');
-        }
     } catch (error: any) {
         console.error('Test payment error:', error);
         swalNotification('error', error.response?.data?.message || 'Failed to initiate test payment');
@@ -240,27 +301,33 @@ const testVoucherPurchase = async () => {
     try {
         const response = await axios.post('/api/admin/test/voucher-purchase', state.voucherForm);
 
-        const selectedPackage = state.packages.find(p => p.id == state.voucherForm.package_id);
+        if (!response.data.success) {
+            swalNotification('error', response.data.message || 'Voucher purchase test failed');
+            return;
+        }
 
-        const result = {
-            _id: ++resultIdCounter,
+        const selectedPackage = state.packages.find(p => p.id == state.voucherForm.package_id);
+        const paymentData = response.data.payment_data || {};
+        const reference = paymentData.id || response.data.transaction_id;
+
+        // Add to history
+        state.testResults.unshift({
             type: 'voucher',
-            ...response.data,
             timestamp: new Date().toISOString(),
             phone_number: state.voucherForm.phone_number,
             package_name: selectedPackage?.name || 'Unknown',
-            pollingStatus: null,
-            pollingTimedOut: false,
-        };
+            amount: selectedPackage?.price || 0,
+            gateway: response.data.gateway || paymentData._gateway,
+            status: paymentData.status || 'pending',
+            payment_id: paymentData.id,
+            transaction_id: response.data.transaction_id,
+            mfscode: null,
+            voucher: null,
+        });
 
-        state.testResults.unshift(result);
+        // Start SweetAlert polling
+        pollWithSwal(reference, 'voucher', 0);
 
-        if (response.data.success) {
-            await nextTick();
-            startPollingResult(result._id);
-        } else {
-            swalNotification('error', response.data.message || 'Voucher purchase test failed');
-        }
     } catch (error: any) {
         console.error('Voucher purchase test error:', error);
         swalNotification('error', error.response?.data?.message || 'Failed to initiate voucher purchase test');
@@ -269,32 +336,20 @@ const testVoucherPurchase = async () => {
     }
 };
 
-// Manual check payment status (for the button)
-const checkPaymentStatus = async (result: any) => {
-    const reference = result.payment_id || result.payment_data?.id || result.transaction_id;
+// Manual re-check for a result in the history
+const recheckStatus = async (result: any, index: number) => {
+    const reference = result.payment_id || result.transaction_id;
     if (!reference) {
         swalNotification('error', 'No payment reference found');
         return;
     }
 
-    // If already in a terminal state, no need to re-poll
-    const currentStatus = result.status || result.payment_data?.status;
-    if (isTerminal(currentStatus)) {
-        swalNotification('info', `Payment already ${currentStatus}.`);
+    if (result.status === 'successful' || result.status === 'failed') {
+        swalNotification('info', `Payment already ${result.status}.`);
         return;
     }
 
-    // If not already polling, start polling
-    if (!isPolling(result._id)) {
-        startPollingResult(result._id);
-    }
-};
-
-// Clear test history
-const clearHistory = () => {
-    stopAllPolling();
-    state.testResults = [];
-    swalNotification('success', 'Test history cleared');
+    pollWithSwal(reference, result.type, index);
 };
 
 onMounted(() => {
@@ -306,12 +361,12 @@ onMounted(() => {
 
     if (canTestPayments.value) {
         loadGatewayInfo();
-        loadPackages();
+        loadRouters();
     }
 });
 
 onUnmounted(() => {
-    stopAllPolling();
+    stopPolling();
 });
 </script>
 
@@ -432,9 +487,20 @@ onUnmounted(() => {
                                         placeholder="0757058906 or 256771234567" required />
                                 </div>
                                 <div class="mb-3">
+                                    <label class="form-label">Router *</label>
+                                    <select class="form-select" v-model="state.voucherForm.router_id"
+                                        @change="onRouterChange(state.voucherForm.router_id)" required>
+                                        <option value="">Select Router</option>
+                                        <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                            {{ router.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
                                     <label class="form-label">Voucher Package *</label>
-                                    <select class="form-select" v-model="state.voucherForm.package_id" required>
-                                        <option value="">Select Package</option>
+                                    <select class="form-select" v-model="state.voucherForm.package_id"
+                                        :disabled="!state.voucherForm.router_id || state.packagesLoading" required>
+                                        <option value="">{{ state.packagesLoading ? 'Loading packages...' : 'Select Package' }}</option>
                                         <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">
                                             {{ pkg.name }} - {{ formatCurrency(pkg.price) }}
                                         </option>
@@ -451,15 +517,15 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <!-- Test Results -->
-            <div class="card shadow-sm">
+            <!-- Test Results History -->
+            <div class="card shadow-sm" v-if="state.testResults.length">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                     <span><i class="fas fa-history me-2"></i> Test Results</span>
-                    <button class="btn btn-sm btn-outline-light" @click="clearHistory" v-if="state.testResults.length">
+                    <button class="btn btn-sm btn-outline-light" @click="state.testResults = []">
                         <i class="fas fa-trash me-1"></i> Clear
                     </button>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead>
@@ -470,18 +536,11 @@ onUnmounted(() => {
                                     <th>Amount/Package</th>
                                     <th>Gateway</th>
                                     <th>Status</th>
-                                    <th>Reference</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-if="!state.testResults.length">
-                                    <td colspan="8" class="text-center text-muted py-4">
-                                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-                                        No test results yet. Run a test above to see results here.
-                                    </td>
-                                </tr>
-                                <tr v-for="result in state.testResults" :key="result._id">
+                                <tr v-for="(result, index) in state.testResults" :key="result.timestamp + index">
                                     <td>
                                         <span :class="result.type === 'payment' ? 'badge bg-info' : 'badge bg-success'">
                                             {{ result.type === 'payment' ? 'Payment' : 'Voucher' }}
@@ -494,35 +553,22 @@ onUnmounted(() => {
                                         <span v-else>{{ result.package_name }}</span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary text-uppercase">
-                                            {{ result.gateway || result.payment_data?._gateway || '-' }}
-                                        </span>
+                                        <span class="badge bg-secondary text-uppercase">{{ result.gateway || '-' }}</span>
                                     </td>
                                     <td>
-                                        <!-- Polling state: show spinner + live status -->
-                                        <span v-if="isPolling(result._id)" class="d-flex align-items-center gap-2">
-                                            <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
-                                            <small class="text-primary fw-bold">{{ result.pollingStatus }}</small>
+                                        <span class="badge" :class="getStatusBadgeClass(result.status)">
+                                            {{ result.status }}
                                         </span>
-                                        <!-- Timed out -->
-                                        <span v-else-if="result.pollingTimedOut" class="badge bg-warning text-dark">
-                                            Timed out
-                                        </span>
-                                        <!-- Terminal or idle status -->
-                                        <span v-else class="badge" :class="getStatusBadgeClass(result.status || result.payment_data?.status || 'pending')">
-                                            {{ result.status || result.payment_data?.status || 'pending' }}
-                                        </span>
-                                    </td>
-                                    <td class="small text-muted">
-                                        {{ result.payment_id || result.payment_data?.id || result.transaction_id || '-' }}
+                                        <div v-if="result.voucher" class="mt-1">
+                                            <small class="text-success fw-bold">{{ result.voucher.code }}</small>
+                                        </div>
                                     </td>
                                     <td>
                                         <button
                                             class="btn btn-sm btn-outline-primary"
-                                            @click="checkPaymentStatus(result)"
-                                            :disabled="isPolling(result._id)"
-                                            title="Check Status">
-                                            <i class="fas fa-sync-alt" :class="{ 'fa-spin': isPolling(result._id) }"></i>
+                                            @click="recheckStatus(result, index)"
+                                            title="Re-check Status">
+                                            <i class="fas fa-sync-alt"></i>
                                         </button>
                                     </td>
                                 </tr>
