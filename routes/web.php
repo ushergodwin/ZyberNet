@@ -57,6 +57,11 @@ Route::middleware([
     Route::get('/vouchers/purchase/{id?}', [VoucherController::class, 'purchase'])->name('vouchers.purchase');
     // payments
     Route::get('/payments', [PaymentsController::class, 'index'])->name('payments.index');
+
+    // Admin - Payment Testing
+    Route::get('/admin/payment-test', function () {
+        return Inertia::render('Admin/PaymentTest');
+    })->name('admin.payment-test');
 });
 
 

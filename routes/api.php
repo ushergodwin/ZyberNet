@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ConfigurationController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PaymentTestController;
 use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\RouterController;
 use App\Http\Controllers\Api\VoucherController;
@@ -113,12 +114,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/export', [PaymentController::class, 'exportTransactions'])->name('admin.transaction.export');
     });
 
-    // reports 
+    // reports
     Route::prefix('reports')->group(function () {
         //getStatistics from ReportsController
         Route::get('/stats', [ReportsController::class, 'getStatistics'])->name('reports.statistics');
         // NEW: Enhanced transaction reports
         Route::get('/transactions/summary', [PaymentController::class, 'getTransactionStats'])->name('reports.transactions.summary');
+    });
+
+    // Payment testing routes (admin only)
+    Route::prefix('admin/test')->group(function () {
+        Route::post('/payment', [PaymentTestController::class, 'testPayment'])->name('admin.test.payment');
+        Route::post('/voucher-purchase', [PaymentTestController::class, 'testVoucherPurchase'])->name('admin.test.voucherPurchase');
+        Route::get('/payment/status/{reference}', [PaymentTestController::class, 'testPaymentStatus'])->name('admin.test.paymentStatus');
+        Route::get('/gateway-info', [PaymentTestController::class, 'gatewayInfo'])->name('admin.test.gatewayInfo');
     });
 });
 

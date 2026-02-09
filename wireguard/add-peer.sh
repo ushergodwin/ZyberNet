@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Add a new MikroTik router as a WireGuard peer to the VPN
-# Secure subnet 10.57.123.0/24
+# Add a new MikroTik router as a WireGuard peer (CLI version)
+# Prints MikroTik commands to the terminal
 
 WG_INTERFACE="wg0"
 WG_CONFIG="/etc/wireguard/${WG_INTERFACE}.conf"
@@ -14,38 +14,35 @@ if [ -z "$PEER_NAME" ]; then
   exit 1
 fi
 
-# Public IP of the server
+# Detect public IP
 SERVER_PUBLIC_IP=$(curl -s https://ipinfo.io/ip)
 if [[ -z "$SERVER_PUBLIC_IP" ]]; then
-  echo "Error: Could not detect public IP."
+  echo "Error: Could not detect server public IP."
   exit 1
 fi
 
-# Ensure last_used_ip file exists
+# Ensure tracking file exists
 if [ ! -f "$LAST_USED_FILE" ]; then
-    echo "2" > "$LAST_USED_FILE"
+  echo "2" > "$LAST_USED_FILE"
 fi
 
-# Determine next free IP by checking wg0.conf
+# Get the next free IP
 NEXT_IP=$(cat "$LAST_USED_FILE")
 
 while grep -q "${SUBNET_BASE}.${NEXT_IP}/32" "$WG_CONFIG"; do
-    NEXT_IP=$((NEXT_IP + 1))
+  NEXT_IP=$((NEXT_IP + 1))
 done
 
 NEW_PEER_IP="${SUBNET_BASE}.${NEXT_IP}"
 echo $((NEXT_IP + 1)) > "$LAST_USED_FILE"
 
-# Generate peer keys
+# Generate keys
 PEER_PRIVATE_KEY=$(wg genkey)
 PEER_PUBLIC_KEY=$(echo "$PEER_PRIVATE_KEY" | wg pubkey)
 
-# Server Public Key (verified from your system)
 SERVER_PUBLIC_KEY=$(cat /etc/wireguard/server_public.key)
 
-echo "🔧 Adding peer [$PEER_NAME] with IP [$NEW_PEER_IP]"
-
-# Add peer to wg0.conf
+# Update wg0.conf
 cat >> "$WG_CONFIG" <<EOF
 
 # ${PEER_NAME}
@@ -55,23 +52,35 @@ AllowedIPs = ${NEW_PEER_IP}/32
 PersistentKeepalive = 25
 EOF
 
-# Apply changes live
+# Apply config live
 wg addconf $WG_INTERFACE <(wg-quick strip $WG_INTERFACE)
 
-# MikroTik port selection (use ports already used by other routers)
-# Your routers use ports: 51820 and 29725 → pick 29725 + increment
+# Generate port (similar to other routers)
 BASE_PORT=29725
 PORT_INCREMENT=$((RANDOM % 20000))
 MIKROTIK_PORT=$((BASE_PORT + PORT_INCREMENT))
 
+# OUTPUT COMMANDS -------------------------------
 echo ""
-echo "---------------------------------------------------------"
-echo "✅ MikroTik WireGuard Setup Instructions (RouterOS CLI)"
-echo "---------------------------------------------------------"
+echo "============================================================"
+echo " WireGuard Peer Created: ${PEER_NAME}"
+echo "============================================================"
 echo ""
-echo "/interface wireguard add name=wg-superspot-${PEER_NAME} private-key=\"${PEER_PRIVATE_KEY}\" listen-port=${MIKROTIK_PORT}"
+echo "Add the following commands to the MikroTik router:"
+echo ""
+
+echo "/interface wireguard add name=wg-superspot-${PEER_NAME} listen-port=${MIKROTIK_PORT} private-key=\"${PEER_PRIVATE_KEY}\""
 echo "/ip address add address=${NEW_PEER_IP}/32 interface=wg-superspot-${PEER_NAME}"
 echo "/interface wireguard peers add interface=wg-superspot-${PEER_NAME} public-key=\"${SERVER_PUBLIC_KEY}\" endpoint-address=${SERVER_PUBLIC_IP} endpoint-port=51820 allowed-address=10.57.123.1/32 persistent-keepalive=25"
 echo ""
-echo "⚠ IMPORTANT: On the server, the peer is already added."
-echo "Router will auto-connect after you apply the above commands."
+echo "# Additional commands required:"
+echo "/ip route add dst-address=10.57.123.0/24 gateway=wg-superspot-${PEER_NAME}"
+echo "/ip firewall filter add chain=input action=accept protocol=udp dst-port=${MIKROTIK_PORT} comment=\"Allow WireGuard\""
+echo "/ip firewall nat add chain=srcnat action=masquerade out-interface=wg-superspot-${PEER_NAME}"
+echo "/ip firewall filter add chain=input action=accept in-interface=wg-superspot-${PEER_NAME} comment=\"Allow WG input\""
+echo "/ip firewall filter add chain=forward action=accept in-interface=wg-superspot-${PEER_NAME} comment=\"Allow WG forward in\""
+echo "/ip firewall filter add chain=forward action=accept out-interface=wg-superspot-${PEER_NAME} comment=\"Allow WG forward out\""
+echo ""
+echo "============================================================"
+echo " Done."
+echo "============================================================"

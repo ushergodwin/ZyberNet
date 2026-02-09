@@ -105,12 +105,25 @@ class PaymentController extends Controller
                 // remove + from phone number
                 $phoneNumber = preg_replace('/^\+/', '', $transaction->phone_number);
 
-                // send sms 
+                // send sms
                 $sms_sent = SmsService::send($phoneNumber, "Your SuperSpotWiFi voucher code is: {$voucher->code}. Use it to access the internet. Thank you for using our service!");
+
+                // CinemaUG transactions are not needed after successful completion —
+                // detach the voucher and permanently delete the transaction record.
+                if ($transaction->gateway === 'cinemaug') {
+                    $voucher->transaction_id = null;
+                    $voucher->save();
+                    $transaction->forceDelete();
+
+                    Log::info('CinemaUG transaction deleted after successful payment', [
+                        'payment_id' => $id,
+                    ]);
+                }
             }
+
             return response()->json([
                 'message' => $message,
-                'transaction' => $transaction,
+                'transaction' => $transaction->gateway === 'cinemaug' && $transaction->status === 'successful' ? null : $transaction,
                 'voucher' => $transaction->status === 'successful' ? $voucher : null,
                 'sms_sent' => $sms_sent,
             ]);

@@ -1,0 +1,769 @@
+2 INTRODUCTION 
+2.1 ABOUT YO! PAYMENTS 
+Yo! Payments is a revolutionary mobile payments gateway service. Yo! Payments enables businesses to 
+receive payments from their customers via mobile money, as well as make mobile money payments to 
+any mobile money account holder.  Yo! Payments also has the capability to send mobile calling credit 
+(“airtime”) directly to users. Yo! Payments offers a rich API which enables seamless integration with 
+websites, IVR services, SMS services and any other medium through which businesses interact with their 
+customers. Yo! Payments also offers an “internal transfer” service which enables account holders to 
+cheaply transfer funds amongst each other. 
+Yo! Payments essentially opens the door for all types of businesses to benefit from the highly successful 
+mobile money transfer phenomenon. 
+2.2 YO! PAYMENTS API 
+Yo! Payments offers an Application Programming Interface (API) for businesses who wish to customize 
+their customers’ payment experience. The API is only available for Business Account holders. 
+2.3 SUPPORTED OPERATIONS 
+The API provides support for both transaction-oriented operations and non transaction-oriented 
+operations.  A transaction-oriented operation is an operation intended to result in the transfer of funds 
+from one account to another account. 
+2.3.1 
+Transaction-oriented Operations 
+The API supports the following transaction-oriented operations.  Note that these operations are also 
+available from the Web Interface. 
+ Withdraw Funds 
+ Deposit Funds 
+ Internal Transfer 
+ Airtime Transfer 
+2.3.2 
+Non Transaction-oriented Operations 
+Following are the non transaction-oriented operations supported by the API: 
+ Check Transaction Status 
+ Check Account Balance 
+ Get Mini-Statement 
+ Verify Account Validity 
+All the above operations are fully described in the later sections of this document. 
+Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+9
+API Specification 
+3 USING THE API 
+3.1 PREREQUISITES 
+To use the API, you must, first of all, have a Yo! Payments Business Account1.  The API is not available 
+for Personal Accounts. 
+Once you have a Business Account, you must obtain an API Username and API Password. You may 
+obtain the API Username and API Password from the web interface of your Payment Account.  The API 
+Username and API Password are used to map all your API requests to your Payment Account, and for 
+security purposes. 
+You may change your API Username and API Password at any time from the web interface using the 
+“Regenerate API Credentials” feature in your web account. 
+3.2 REQUEST FORMAT 
+3.2.1 
+HTTP Headers 
+All requests must be submitted in plain XML. Therefore, the following HTTP headers are required in all 
+XML requests. If these headers are not present, the request may fail. 
+Content-Type: text/xml 
+Content-transfer-encoding: text 
+3.2.2 
+General XML Format 
+Following is the general format of the XML request.  The parameters in the request below are required for 
+all API requests. 
+<?xml version="1.0" encoding="UTF-8"?> 
+<AutoCreate> 
+<Request> 
+<APIUsername></APIUsername> 
+<APIPassword></APIPassword> 
+<Method></Method> 
+[ other parameters ... ] 
+</Request> 
+</AutoCreate> 
+The table below describes the parameters above: 
+Parameter Name 
+Type 
+Opt 
+Description 
+APIUsername 
+String 
+Mandatory This is the API Username which, together 
+with the API Password below, maps your 
+API request to your Yo! Payments 
+account. Obtain this parameter from the 
+web interface. Note that if you do not have 
+a Business Account, you cannot use the 
+API. 
+1When using the Sandbox server (see section 24, a Business Account is created for you automatically). 
+Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+10
+ 
+ 11 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+APIPassword String Mandatory This is the API Password which, together 
+with the API Username above, maps your 
+API request to your Yo! Payments 
+account. Obtain this parameter from the 
+web interface. Note that if you do not have 
+a Business Account, you cannot use the 
+API. 
+Method String Mandatory This parameter identifies the type of 
+request you are making. 
+3.3 GENERAL RESPONSE FORMAT FOR A SUCCESSFUL REQUEST 
+Below is a sample of the general response format. 
+<?xml version="1.0" encoding="UTF-8"?> 
+<AutoCreate> 
+ <Response> 
+  <Status>OK</Status> 
+  <StatusCode>0</StatusCode> 
+  <TransactionStatus>SUCCEEDED</TransactionStatus> 
+  <TransactionReference></TransactionReference> 
+  <MNOTransactionReferenceId></MNOTransactionReferenceId> 
+  [ ... other fields here ... ] 
+ </Response> 
+</AutoCreate> 
+ 
+The table below provides a description of the fields. 
+Parameter Name Type Presence Description 
+Status String Always Present If there is no error, this is set to “OK”. 
+StatusCode Integer Always Present This field is set to 0 (zero) 
+TransactionStatus String Present only for 
+transaction
+oriented API 
+requests. 
+This field is present for transaction
+oriented API requests such as 
+withdrawals, deposits and internal 
+transfers – in this case this field is set 
+to SUCCEEDED. 
+TransactionReference String Present only for 
+transaction
+oriented API 
+requests. 
+This field is present for transaction
+oriented API requests such as 
+withdrawals, deposits and internal 
+transfers – in this case this field 
+contains a value which uniquely 
+identifies this transaction in your Yo! 
+Payments account.  
+MNOTransactionReferenceId String Present only for 
+transaction- 
+oriented API 
+requests. 
+Mobile Network Operator (MNO) 
+Transaction Reference Identifier. This 
+field is present for transaction-oriented 
+withdrawals and deposits requests 
+ 
+ 12 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+only. The value uniquely identifies this 
+transaction on the relevant Mobile 
+Network Operator's system. 
+Note: In case of additional information 
+returned by the Mobile Network 
+Operator system, this information will 
+be appended to this parameter after a 
+sequence of three comma characters 
+for example: Assume the MNO 
+transaction reference is 330192910 
+and the additional information to be 
+sent is "PROMO OFFER", this will be 
+represented as "330192910,,,PROMO 
+OFFER". Used for Lottery System. 
+3.4 GENERAL RESPONSE FORMAT FOR AN UNSUCCESSFUL REQUEST 
+<?xml version="1.0" encoding="UTF-8"?> 
+<AutoCreate> 
+ <Response> 
+  <Status>ERROR</Status> 
+  <StatusCode></StatusCode> 
+  <StatusMessage></StatusMessage> 
+  <ErrorMessageCode></ErrorMessageCode> 
+  <ErrorMessage></ErrorMessage> 
+  <TransactionStatus></TransactionStatus> 
+  <TransactionReference></TransactionReference> 
+ </Response> 
+</AutoCreate> 
+ 
+The table below describes the fields above: 
+Parameter Name Type Presence Description 
+Status String Always 
+Present 
+If there is an error, this parameter is set to 
+“ERROR”. In this case, check the Message 
+parameter for a description of the error which 
+occurred. 
+StatusCode Integer Always 
+Present 
+This is an integral value which uniquely 
+identifies the status of the transaction. To obtain 
+the possible values of this field and their 
+respective descriptions, refer to Section 20. 
+StatusMessage String Always 
+Present 
+Textual description of the status code above. 
+ErrorMessageCode Integer Present if 
+ErrorMessage 
+is available. 
+This field may or may not be present in the 
+response XML. The field will only be present 
+and set if ErrorMessage is present and set. If 
+present this is set to an integral value which 
+ 
+ 13 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+uniquely identifies the message in 
+ErrorMessage. The error message code is 
+useful in resolving transaction errors. 
+ErrorMessage String Present if 
+additional 
+information is 
+available. 
+This field may or may not be present in the 
+response XML. If present, it provides you with 
+additional information about any error which 
+may have occurred. The information contained 
+in this field is highly useful in resolving any 
+internal errors with the Yo! Payments service. If 
+this information is provided in the response 
+XML, provide it to your Yo! Payments contact, 
+should you opt to submit an error report. 
+TransactionStatus 
+ 
+String Present only 
+for 
+transaction
+oriented API 
+requests. 
+This field is present for transaction-oriented API 
+requests such as withdrawals, deposits and 
+internal transfers. This field may take any of two 
+possible values namely FAILED and 
+INDETERMINATE.  Below is the meaning of the 
+respective values: 
+ FAILED. This means that your request 
+was not successful. You may re-submit 
+your request for processing if there was 
+an error on your part. 
+ INDETERMINATE. This means that 
+your request is pending resolution by the 
+Yo! Payments team. This normally 
+happens if there was a delay in 
+processing of mobile money 
+transactions. Typicially requests which 
+result in this status are resolved within 
+24 hours of your initiating the request. 
+Contact your Yo! Payments 
+representative for earlier resolution. 
+TransactionReference String Sometimes 
+present but 
+only for 
+transaction
+oriented API 
+requests. 
+This value may or may not be present.  If 
+present, this value uniquely identifies your 
+transaction in your Yo! Payments account. 
+3.5 GENERAL RESPONSE FORMAT FOR A PENDING REQUEST 
+Below is a sample of the general response format for a PENDING request. All XML responses from Yo! 
+Payments shall have the fields in the sample XML below, if the status is PENDING.  A PENDING 
+transaction is one which has not yet been processed to a conclusion.  Therefore, this is a request which is 
+neither successful nor unsuccessful but is awaiting execution. Note that not all transaction types can enter 
+API Specification 
+into the PENDING state. Review the specific transaction documentation to determine whether the 
+PENDING state is valid for the transaction. 
+<?xml version="1.0" encoding="UTF-8"?> 
+<AutoCreate> 
+<Response> 
+<Status>OK</Status> 
+<StatusCode>1</StatusCode> 
+<TransactionStatus>PENDING</TransactionStatus> 
+<TransactionReference></TransactionReference> 
+[ ... other fields here ... ] 
+</Response> 
+</AutoCreate> 
+The table below provides a description of the fields. 
+Parameter Name 
+Type 
+Description 
+Status 
+String 
+If there is no error, this is set to “OK”. 
+StatusCode 
+Integer 
+This field is set to 1 (one) 
+TransactionStatus 
+String 
+This field is present for transaction-oriented API requests 
+such as withdrawals, deposits and internal transfers – in 
+this case this field is set to PENDING. 
+TransactionReference String 
+This field is present for transaction-oriented API requests 
+such as withdrawals, deposits and internal transfers – in 
+this case this field contains a value which uniquely 
+identifies this transaction in your Yo! Payments account.  
+3.6 STATE DIAGRAM FOR TRANSACTION STATUSES 
+The diagram below attempts to provide a visual explanation of the transaction statuses supported in Yo! 
+Payments. 
+Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+14
+3.7 REQUEST SUBMISSION URL 
+All requests to the API system must be submitted to any of the following URLs: 
+https://paymentsapi1.yo.co.ug/ybs/task.php 
+https://paymentsapi2.yo.co.ug/ybs/task.php 
+
+
+
+4 WITHDRAW FUNDS TRANSACTION 
+This transaction enables you to withdraw funds from your account and deposit the funds into the account 
+of a mobile money user. You shall be required to provide the telephone number of the mobile money user 
+in order to complete this transaction. Note that this transaction will only succeed for supported mobile 
+money network providers. To get a current list of supported mobile money network providers, visit our 
+website. An example of where this transaction is useful is when making a payment to a mobile money 
+user, or cashing out your balance. If you are cashing out your balance then you shall need to perform two 
+steps namely: (a) Perform this transaction to transfer the money to a mobile money account; (b) Obtain 
+the cash from the mobile money provider. 
+4.1 REQUEST FORMAT 
+Below is the format of the XML request: 
+<?xml version="1.0" encoding="UTF-8"?> 
+<AutoCreate> 
+ <Request> 
+  <APIUsername></APIUsername> 
+  <APIPassword></APIPassword> 
+  <Method>acwithdrawfunds</Method> 
+  <NonBlocking></NonBlocking> 
+  <Amount></Amount> 
+  <Account></Account> 
+  <AccountProviderCode></AccountProviderCode> 
+      <TransactionLimitAccountIdentifier></TransactionLimitAccountIdentifier> 
+  <Narrative></Narrative> 
+  <NarrativeFileName></NarrativeFileName> 
+  <NarrativeFileBase64></NarrativeFileBase64> 
+  <InternalReference></InternalReference> 
+  <ExternalReference></ExternalReference> 
+  <ProviderReferenceText></ProviderReferenceText> 
+      <PublicKeyAuthenticationNonce></PublicKeyAuthenticationNonce> 
+    <PublicKeyAuthenticationSignatureBase64></PublicKeyAuthenticationSignatureBase64> 
+ </Request> 
+</AutoCreate> 
+ 
+The table below describes the parameters which are unique to this request. For a description of the 
+standard parameters, refer to section 3.2.2. 
+Parameter Name Type Opt Description 
+Method String Mandatory Must be set to the string 
+acwithdrawfunds. 
+NonBlocking String Optional If set to “TRUE”, you will 
+follow up on the status of 
+the transaction as 
+described in section 0. 
+If this parameter is empty 
+or set to “FALSE” by 
+default your connection 
+to the system is 
+ 
+ 17 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+maintained until your 
+request is fulfilled. 
+Amount Float Mandatory This is the amount to be 
+withdrawn. Must be set 
+to a value greater than 
+zero. Fractional amounts 
+may not be supported by 
+certain mobile money 
+providers. 
+Account Numeric Mandatory This is a numerical value 
+representing the account 
+number of the mobile 
+money account where 
+you wish to transfer the 
+funds to. This is typically 
+the telephone number of 
+the mobile phone 
+receiving the amount. 
+Telephone numbers 
+MUST have the 
+international code 
+prepended, without the 
+“+” sign. An example of a 
+mobile money account 
+number which would be 
+valid for the MTN 
+Uganda network is 
+256771234567. 
+AccountProviderCode String Optional Provide here the account 
+provider code of the 
+institution holding the 
+account indicated in the 
+Account parameter. See 
+section 21 for a list of all 
+supported account 
+provider codes. 
+TransactionLimitAccountIdentifier String Optional This optional parameter 
+is used in conjunction 
+with a system feature to 
+enforce transaction limits 
+on a per-account basis.  
+Consider a situation 
+where you maintain 
+accounts for users and 
+you wish to limit the 
+amounts they can 
+ 
+ 18 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+transfer out of their 
+accounts with you, and 
+you wish this limit to also 
+be enforced by the Yo! 
+Payments system, you 
+would send the user’s 
+account number in this 
+parameter, as well as 
+ensure you contact your 
+Yo! Payments Account 
+representative to set  (a) 
+A Global Limit on a Per
+Account basis; (b) The 
+account identifiers which 
+are valid to be sent 
+through this parameter.  
+Yo! Payments shall 
+dynamically build a limit 
+table that will be 
+enforced on a daily 
+basis, and the configured 
+limits shall be enforced 
+accordingly. 
+Narrative String Mandatory Textual narrative about 
+the transaction. Enter 
+here a sentence 
+describing the 
+transaction. Provide a 
+maximum of 4096 
+characters here. If you 
+wish to provide more 
+information, consider 
+using the 
+NarrativeFileBase64 
+parameter (see below). 
+NarrativeFileName FileNameString2 
+ 
+Optional This parameter enables 
+you to attach a file to the 
+transaction. This is 
+useful, for example, in 
+the case where you may 
+want to attach a scanned 
+receipt, or a scanned 
+payment authorization, 
+ 
+2 A FileNameString is a case-insensitive string comprising of one or more of the following valid characters: {a 
+through z, 0 through 9, period character, underscore character, whitespace, hyphen}. The FileNameString is 
+validated with the following regular expression: ^[a-zA-Z0-9\._\s-]+$ 
+ 
+ 19 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+depending on your 
+internally established 
+business rules. This 
+parameter requires you 
+to provide the name of 
+the file you are attaching, 
+as a string, for example 
+“receipt.doc” or 
+“receipt.pdf”. Note that 
+the contents of this 
+parameter are ignored if 
+you have not provided 
+the contents of the file 
+using 
+NarrativeFileBase64 
+below. 
+NarrativeFileBase64 String Optional This parameter enables 
+you to attach a file to the 
+transaction. This is 
+useful, for example, in 
+the case where you may 
+want to attached a 
+scanned receipt, or a 
+scanned payment 
+authorization, depending 
+on your business rules. 
+This parameter requires 
+you to provide the 
+contents of the file you 
+are attaching, encoded in 
+base-64 encoding. Note 
+that the contents of this 
+parameter are ignored if 
+you have not provided a 
+file name using 
+NarrativeFileName 
+above. 
+InternalReference String Optional In this field, provide an 
+internal transaction 
+reference. If this transfer 
+is related to another 
+system transaction, enter 
+its reference code in this 
+field. If you are unsure 
+about the meaning of this 
+field, do not include it in 
+your request. This field is 
+ 
+ 20 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+useful in linking this 
+request to another 
+existing transaction 
+which is already in the 
+system. 
+ExternalReference String Optional In this field, enter an 
+external transaction 
+reference. An external 
+transaction reference is 
+something which yourself 
+and the benecifiary agree 
+upon. For example, this 
+may be an invoice 
+number, or a phrase 
+describing the purpose of 
+this transaction in a way 
+that the beneficiary 
+would understand. This 
+field is optional and you 
+may omit it in your 
+request. 
+ProviderReferenceText String Optional In this field, enter text 
+you wish to be present in 
+any confirmation 
+message which the 
+mobile money provider 
+network sends to the 
+subscriber upon 
+successful completion of 
+the transaction. Some 
+mobile money providers 
+automatically send a 
+confirmatory text 
+message to the 
+subscriber upon 
+completion of 
+transactions. This 
+parameter allows you to 
+provide some text which 
+will be appended to any 
+such confirmatory 
+message sent to the 
+subscriber. 
+PublicKeyAuthenticationNonce String Optional This parameter is 
+optional if public key 
+authentication is not 
+ 
+ 21 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+enabled for your account. 
+If public key 
+authentication is 
+enabled, this parameter 
+is mandatory. If 
+specified, this must be 
+set to a string whose 
+maximum length is 255 
+characters. 
+This string must be 
+composed of 
+alphanumeric characters – [a-zA-z0-9]. It can also 
+contain commas (,), 
+hyphens (-), and plus 
+signs (+). 
+The value submitted 
+under this parameter 
+must be unique and must 
+never have been 
+submitted in any API 
+request. One way of 
+ensuring that you submit 
+unique values under this 
+parameter is by 
+implementing a counter 
+starting from 1 which 
+should be incremented 
+on each API request. 
+You can also devise 
+other methods of 
+generating unique values 
+that can be used for this 
+parameter.  
+ 
+IMPORTANT NOTE: 
+This parameter is 
+expected to be unique 
+even in the event that the 
+transaction does not 
+succeed. 
+It must be unique for 
+each API call made, 
+regardless of the status 
+ 
+ 22 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+of the transaction.  
+Therefore, do not set this 
+parameter to your private 
+transaction identifier 
+especially if your 
+transaction identifiers 
+may be re-used or re
+submitted later. This 
+parameter is tagged to 
+the API call and must be 
+unique for each API call. 
+PublicKeyAuthenticationSignatureBase64 String Optional This parameter is 
+optional but mandatory if 
+public key authentication 
+is turned on for your 
+account. 
+Maximum length of this 
+field is 4096 characters. 
+Obtain this parameter as 
+follows: 
+ 
+a) Concatenate the 
+values of the following 
+parameters  in the 
+indicated order as they 
+appear below: 
+ APIUsername 
+ Amount 
+ Account 
+ Narrative  
+ ExternalReference 
+ PublicKeyAuthenti
+cationNonce 
+Note the following: (i) If 
+your Narrative 
+parameter is longer than 
+255 characters, only the 
+first 255 characters of the 
+Narrative parameter 
+should be used in the 
+concatenation. (ii) If your 
+ExternalReference 
+ 
+ 23 Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+API Specification 
+parameter is longer than 
+255 characters, only the 
+first 255 characters of the 
+ExternalReference 
+parameter should be 
+used in the 
+concatenation.  (iii) If 
+your 
+PublicKeyAuthenticat
+ionNonce parameter is 
+longer than 255 
+characters, only the first 
+255 characters of the 
+PublicKeyAuthenticat
+ionNonce parameter 
+should be used in the 
+concatenation.   
+b) Next, obtain an SHA1 
+hash of the above string 
+in [a]; 
+c) Calculate the RSA 
+signature of the SHA1 
+hash obtained in [b] 
+above using your private 
+key associated with your 
+public key. (NOTE: Your 
+public key will be 
+configured under your 
+Yo! Payments account 
+profile. If you have not 
+already done so, please 
+share your public key 
+with your account 
+representative to have it 
+configured under your 
+profile. DO NOT share 
+your private key with any 
+one – not even with the 
+Yo! Payments support 
+staff. Your private is like 
+a password which you 
+only must know) 
+d) Base64-encode the 
+RSA signature calculated 
+in [c] above. 
+ 
+API Specification 
+4.2 HOW TO GENERATE A PRIVATE / PUBLIC KEY 
+If public key authentication is turned on for your account, you are required to sign all your 
+acwithdrawfunds API requests using a private key. The public key associated with private key you use 
+to sign the API requests will be used to verify the signatures received in your API requests. You can 
+generate a private / public key pair using the following procedure: 
+4.2.1 
+Using OpenSSL On Linux 
+First, generate a private key by running the following command: 
+$ openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048 
+If the above command is run, file private_key.pem will be written. This is your private key. 
+IMPORTANT NOTE: Do not share your private key with anyone – not even with the Yo! Payments 
+support staff or your account representative. 
+Next, extract the public key associated with the private key using the following command: 
+$ openssl rsa -pubout -in private_key.pem -out public_key.pem 
+If the above command is run, file public_key.pem will be written. This is your public key that you’re 
+supposed to share with your Yo! Payments account representative for configuration under your Yo! 
+Payments account profile. 
+4.2.2 
+Using OpenSSL On Windows 
+The instructions given below are for a Windows 10 64-bit system. 
+1. Download OpenSSL from the link below: 
+https://slproweb.com/products/Win32OpenSSL.html 
+Scroll to the section “Download Win32/Win64 OpenSSL” and choose a non-light version of 
+OpenSSL as shown below: 
+Choose the “EXE” link under “Win64 OpenSSL v1.1.1d” from above. 
+2. Install OpenSSL by clicking the downloaded executable. In the example given above, the 
+executable downloaded was “Win64OpenSSL-1_1_1d.exe”. 
+Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+24
+API Specification 
+3. Assuming the installation has placed the “openssl.exe” executable at  
+"C:\Program Files\OpenSSL-Win64\bin\openssl.exe", generate the private / public key 
+pair by running the following commands: 
+Generate private key: 
+"C:\Program Files\OpenSSL-Win64\bin\openssl.exe" genpkey -algorithm RSA -out 
+private_key.pem -pkeyopt rsa_keygen_bits:2048 
+If the above command is run, file private_key.pem will be written. This is your private key. 
+IMPORTANT NOTE: Do not share your private key with anyone – not even with the Yo! 
+Payments support staff or your account representative. 
+Next, extract the public key associated with the private key using the following command: 
+"C:\Program Files\OpenSSL-Win64\bin\openssl.exe" rsa -pubout -in 
+private_key.pem -out public_key.pem 
+If the above command is run, file public_key.pem will be written. This is your public key that 
+you’re supposed to share with your Yo! Payments account representative for configuration under 
+your Yo! Payments account profile. 
+The screenshot below shows a practical demonstration of the output of the above commands. 
+Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+25
+API Specification 
+4.2.3 
+Caculating The RSA-Signature Sent In The Request 
+When calculating the RSA signature that’s sent in the API request, the library tools you use may require 
+that you specify the signature algorithm. You must use “SHA1” as the signature algorithm. Signature 
+verification may fail if you use any other signature algorithm other than “SHA1”. 
+4.3 SUCCESS RESPONSE FORMAT 
+If your request is successful, you shall get a response in the format described in section 3.3 above. 
+4.4 ERROR RESPONSE FORMAT 
+If your request is not successful, you shall get a response in the format described in section 3.4 above. 
+4.5 PENDING RESPONSE FORMAT 
+If your request is pending processing, for example in the case where you set NonBlocking to TRUE, then 
+you shall get a response in the format described in section 3.5 above. 
+Copyright © 2006 – 2020 Yo! Uganda Limited 
+www.yo.co.ug 
+26
+API Specification
