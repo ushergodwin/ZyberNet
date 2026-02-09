@@ -189,6 +189,16 @@ class PaymentTestController extends Controller
                     $voucher = $transaction->voucher;
                 }
 
+                // Send SMS with voucher code on successful payment
+                $sms_sent = false;
+                if ($voucher && $transaction->status === 'successful') {
+                    $phoneNumber = preg_replace('/[^0-9]/', '', $transaction->phone_number);
+                    if (!str_starts_with($phoneNumber, '256')) {
+                        $phoneNumber = '256' . ltrim($phoneNumber, '0');
+                    }
+                    $sms_sent = SmsService::send($phoneNumber, "Your SuperSpotWiFi voucher code is: {$voucher->code}. Use it to access the internet. Thank you for using our service!");
+                }
+
                 return response()->json([
                     'success' => true,
                     'gateway' => $transaction->gateway,
@@ -206,6 +216,7 @@ class PaymentTestController extends Controller
                         'expires_at' => $voucher->expires_at,
                         'is_used' => $voucher->is_used,
                     ] : null,
+                    'sms_sent' => $sms_sent,
                 ]);
             }
 

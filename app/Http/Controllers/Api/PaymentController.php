@@ -160,7 +160,7 @@ class PaymentController extends Controller
             'per_page' => 'nullable|integer|min:10|max:500',
         ]);
 
-        $query = Transaction::with(['package', 'voucher'])->where('created_at', '<', '2026-02-05');
+        $query = Transaction::with(['package', 'voucher']);
 
         // Apply router filter
         if ($request->filled('router_id') && $request->input('router_id') != 0) {
