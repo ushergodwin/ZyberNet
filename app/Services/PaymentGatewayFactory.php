@@ -115,13 +115,13 @@ class PaymentGatewayFactory
      */
     public static function recordGatewayUsage(string $gateway): void
     {
-        $currentGateway = Cache::get('gateway_current', config('services.payment_gateway', 'yopayments'));
+        $defaultGateway = config('services.payment_gateway', 'yopayments');
+        $currentGateway = Cache::get('gateway_current', $defaultGateway);
 
         if ($gateway === $currentGateway) {
-            Cache::increment('gateway_switch_counter');
-        } else {
-            // Gateway was set explicitly (e.g., status check) — don't count it
-            return;
+            $counter = (int) Cache::get('gateway_switch_counter', 0);
+            Cache::put('gateway_switch_counter', $counter + 1);
+            Cache::put('gateway_current', $currentGateway);
         }
     }
 
