@@ -46,8 +46,8 @@ class VoucherController extends Controller
      */
     protected function applySearchFilter($query, $searchTerm)
     {
-        return $query->when($searchTerm === 'active', fn($q) => $q->where('expires_at', '>', now()))
-            ->when($searchTerm === 'expired', fn($q) => $q->where('expires_at', '<', now()))
+        return $query->when($searchTerm === 'active', fn($q) => $q->where(fn($sub) => $sub->whereNull('activated_at')->orWhere('expires_at', '>', now())))
+            ->when($searchTerm === 'expired', fn($q) => $q->whereNotNull('activated_at')->where('expires_at', '<', now()))
             ->when($searchTerm === 'used', fn($q) => $q->where('is_used', 1))
             ->when($searchTerm === 'unused', fn($q) => $q->where('is_used', 0))
             ->when($searchTerm === 'activated:Y', fn($q) => $q->whereNotNull('activated_at'))
