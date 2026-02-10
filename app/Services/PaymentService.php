@@ -96,6 +96,9 @@ class PaymentService
                 'gateway'       => $gatewayName,
             ]);
 
+            // Record gateway usage for auto-switch counter
+            PaymentGatewayFactory::recordGatewayUsage($gatewayName);
+
             if ($voucher_code) {
                 $voucher = Voucher::where('code', $voucher_code)->first();
                 if ($voucher) {
@@ -358,6 +361,9 @@ class PaymentService
                 'total_amount' => $payload['amount'] ?? 0,
                 'gateway' => $gatewayName,
             ]);
+
+            // Record gateway usage for auto-switch counter
+            PaymentGatewayFactory::recordGatewayUsage($gatewayName);
 
             return [
                 'success' => true,

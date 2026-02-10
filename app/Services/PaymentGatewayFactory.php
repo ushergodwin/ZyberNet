@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Contracts\PaymentGatewayInterface;
-use App\Models\Transaction;
 use App\Services\Gateways\CinemaUGGateway;
 use App\Services\Gateways\YoPaymentsGateway;
+use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 
 class PaymentGatewayFactory
@@ -75,8 +75,8 @@ class PaymentGatewayFactory
     /**
      * Determine which gateway to use based on round-robin auto-switching.
      *
-     * Looks at the last N transactions (where N = switch_every). If all N
-     * used the same gateway, switches to the next one in the list.
+     * Uses a cache-based counter instead of DB queries so that the rotation
+     * works correctly even when transactions are deleted (e.g., CinemaUG cleanup).
      *
      * @return string Gateway name
      */
@@ -86,31 +86,43 @@ class PaymentGatewayFactory
         $gatewayNames = array_keys(self::$gateways);
         $defaultGateway = config('services.payment_gateway', 'yopayments');
 
-        $recentGateways = Transaction::whereNotNull('gateway')
-            ->orderBy('id', 'desc')
-            ->take($switchEvery)
-            ->pluck('gateway');
+        $currentGateway = Cache::get('gateway_current', $defaultGateway);
+        $counter = (int) Cache::get('gateway_switch_counter', 0);
 
-        // Not enough transactions yet — use default
-        if ($recentGateways->count() < $switchEvery) {
-            return $defaultGateway;
-        }
-
-        // If the last N transactions all used the same gateway, rotate
-        if ($recentGateways->unique()->count() === 1) {
-            $currentGateway = $recentGateways->first();
+        // Counter reached the threshold — rotate to next gateway
+        if ($counter >= $switchEvery) {
             $currentIndex = array_search($currentGateway, $gatewayNames);
 
             if ($currentIndex === false) {
                 return $defaultGateway;
             }
 
-            $nextIndex = ($currentIndex + 1) % count($gatewayNames);
-            return $gatewayNames[$nextIndex];
+            $nextGateway = $gatewayNames[($currentIndex + 1) % count($gatewayNames)];
+            Cache::put('gateway_current', $nextGateway);
+            Cache::put('gateway_switch_counter', 0);
+
+            return $nextGateway;
         }
 
-        // Mixed gateways in the recent batch — continue with the most recent one
-        return $recentGateways->first();
+        return $currentGateway;
+    }
+
+    /**
+     * Record that a payment was processed through a gateway.
+     * Call this after each successful payment initiation to drive the auto-switch counter.
+     *
+     * @param string $gateway The gateway name that was used
+     */
+    public static function recordGatewayUsage(string $gateway): void
+    {
+        $currentGateway = Cache::get('gateway_current', config('services.payment_gateway', 'yopayments'));
+
+        if ($gateway === $currentGateway) {
+            Cache::increment('gateway_switch_counter');
+        } else {
+            // Gateway was set explicitly (e.g., status check) — don't count it
+            return;
+        }
     }
 
     /**
