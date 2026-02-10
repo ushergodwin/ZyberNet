@@ -16,8 +16,8 @@ class RouterController extends Controller
     public function pushToRouter($voucherId)
     {
 
-        $voucher = Voucher::withTrashed()->findOrFail($voucherId);
-        $router = RouterConfiguration::first();
+        $voucher = Voucher::withTrashed()->with('router', 'package')->findOrFail($voucherId);
+        $router = $voucher->router ?? RouterConfiguration::findOrFail($voucher->router_id);
 
         try {
             if (config('app.env') != 'local') {
