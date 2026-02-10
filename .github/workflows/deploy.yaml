@@ -58,7 +58,7 @@ jobs:
 
             # Database & Laravel optimizations
             docker exec -u root $CONTAINER php artisan migrate --force
-            docker exec -u root $CONTAINER php artisan optimize:clear
+            #docker exec -u root $CONTAINER php artisan optimize:clear
 
             # Frontend build (deterministic)
             docker exec -u root $CONTAINER npm ci
