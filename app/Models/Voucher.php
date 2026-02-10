@@ -50,6 +50,20 @@ class Voucher extends Model
             return true;
         }
 
+        // Calculate expiry from activated_at + package duration (source of truth)
+        // instead of relying on expires_at which may not be recalculated on activation
+        if ($this->relationLoaded('package') && $this->package) {
+            $timeout = $this->package->session_timeout;
+            $timeoutValue = (int) preg_replace('/[^0-9]/', '', $timeout);
+            $timeoutUnit = strtolower(substr($timeout, -1));
+
+            $expiresAt = Carbon::parse($this->activated_at)->add(
+                $timeoutUnit === 'd' ? $timeoutValue . ' days' : $timeoutValue . ' hours'
+            );
+
+            return Carbon::now()->lessThanOrEqualTo($expiresAt);
+        }
+
         return Carbon::now()->lessThanOrEqualTo($this->expires_at);
     }
 

@@ -102,13 +102,16 @@ class HotspotController extends Controller
         } else {
             $supportContacts = SupportContact::whereNull('router_id')->get();
         }
-        return Inertia::render('Vouchers/Buy', [
+        $packages = $package
+            ? VoucherPackage::where('router_id', $package->router_id)->where('is_active', true)->get()
+            : VoucherPackage::where('is_active', true)->get();
+
+        return view('hotspot.buy', [
             'package_id' => $package ? $package->id : null,
-            'csrfToken' => $csrfToken,
-            'packages' => VoucherPackage::all(),
+            'packages' => $packages,
             'wifi_name' => config('app.name', 'Hotspot WiFi'),
             'link_login' => $link_login,
-            'supportContacts' => $supportContacts
+            'supportContacts' => $supportContacts,
         ]);
     }
 
