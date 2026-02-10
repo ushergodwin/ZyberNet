@@ -20,6 +20,7 @@ class CheckPendingTransactions extends Command
         // 1. Process pending transactions
         $this->processTransactions(
             Transaction::whereIn('status', ['new', 'instructions_sent', 'pending', 'processing_started'])
+                ->where('package_id', '!=', null)
                 ->where('amount', '>', 0)
                 ->with('package'),
             'pending'
@@ -28,6 +29,7 @@ class CheckPendingTransactions extends Command
         // 2. Process successful transactions without vouchers
         $this->processTransactions(
             Transaction::where('status', 'successful')
+                ->where('package_id', '!=', null)
                 ->where('amount', '>', 0)
                 ->whereDoesntHave('voucher')
                 ->with('package'),
