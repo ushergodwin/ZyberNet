@@ -192,7 +192,7 @@ class PaymentService
             }
 
             // Generate voucher on successful payment
-            if ($transaction->status === 'successful' && !$transaction->voucher && $generate_voucher) {
+            if ($transaction->status === 'successful' && !$transaction->voucher && $generate_voucher && $transaction->package) {
                 $voucher = self::generateVoucherForTransaction($transaction);
             }
 

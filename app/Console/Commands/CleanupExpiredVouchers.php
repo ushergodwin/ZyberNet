@@ -44,7 +44,7 @@ class CleanupExpiredVouchers extends Command
      *
      * Deletes  transactions that are:
      * - successful or failed (terminal states)
-     * - pending for more than 3 minutes (stale)
+     * - pending for more than 10 minutes (stale — gives enough time for USSD PIN entry + polling)
      *
      * For successful transactions with vouchers, detaches the voucher first.
      */
@@ -56,7 +56,7 @@ class CleanupExpiredVouchers extends Command
                     $query->whereIn('status', ['successful', 'failed'])
                         ->orWhere(function ($q) {
                             $q->whereNotIn('status', ['successful', 'failed'])
-                                ->where('created_at', '<=', now()->subMinutes(3));
+                                ->where('created_at', '<=', now()->subMinutes(10));
                         });
                 })
                 ->with('voucher')

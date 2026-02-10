@@ -86,14 +86,19 @@ class CinemaUGGateway implements PaymentGatewayInterface
 
                 return [
                     'success' => false,
-                    'error' => 'Status check failed',
+                    'error' => 'Status check failed (HTTP ' . $response->status() . ')',
                     'raw_response' => $response->json() ?? ['body' => $response->body()],
                 ];
             }
 
             $data = $response->json();
 
-            return $this->normalizeResponse($data);
+            Log::info('CinemaUG status check raw response', [
+                'reference' => $transactionReference,
+                'response' => $data,
+            ]);
+
+            return $this->normalizeStatusResponse($data, $transactionReference);
         } catch (\Exception $e) {
             Log::error('CinemaUG checkPaymentStatus exception', [
                 'reference' => $transactionReference,
@@ -109,20 +114,90 @@ class CinemaUGGateway implements PaymentGatewayInterface
     }
 
     /**
-     * Normalize CinemaUG response to standard format.
+     * Normalize CinemaUG response for payment creation.
+     *
+     * CinemaUG response fields:
+     *   id (int), phonenumber, contact.phone_number, amount (string "880.0000"),
+     *   currency, status, mfscode, error_message, error_details
      */
     protected function normalizeResponse(array $data): array
     {
+        if (empty($data['id'])) {
+            return [
+                'success' => false,
+                'error' => $data['error_message'] ?? $data['detail'] ?? 'Invalid response from CinemaUG',
+                'raw_response' => $data,
+            ];
+        }
+
         return [
             'success' => true,
-            'id' => (string) ($data['id'] ?? ''),
-            'phone_number' => $data['contact']['phone_number'] ?? ($data['phone_number'] ?? ''),
+            'id' => (string) $data['id'],
+            'phone_number' => $data['contact']['phone_number'] ?? ($data['phonenumber'] ?? ''),
             'amount' => (float) ($data['amount'] ?? 0),
             'currency' => $data['currency'] ?? 'UGX',
-            'status' => $data['status'] ?? 'pending',
+            'status' => $this->mapStatus($data['status'] ?? 'pending'),
             'mfscode' => $data['mfscode'] ?? null,
             'raw_response' => $data,
         ];
+    }
+
+    /**
+     * Normalize CinemaUG response for status checks.
+     * Validates that the response contains the expected transaction data.
+     */
+    protected function normalizeStatusResponse(array $data, string $reference): array
+    {
+        // Validate the response has transaction data (id and status are required)
+        if (empty($data['id']) || !isset($data['status'])) {
+            Log::warning('CinemaUG status response missing required fields', [
+                'reference' => $reference,
+                'response' => $data,
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $data['error_message'] ?? $data['detail'] ?? 'Invalid status response from CinemaUG',
+                'raw_response' => $data,
+            ];
+        }
+
+        $status = $this->mapStatus($data['status']);
+
+        return [
+            'success' => true,
+            'id' => (string) $data['id'],
+            'phone_number' => $data['contact']['phone_number'] ?? ($data['phonenumber'] ?? ''),
+            'amount' => (float) ($data['amount'] ?? 0),
+            'currency' => $data['currency'] ?? 'UGX',
+            'status' => $status,
+            'mfscode' => $data['mfscode'] ?? null,
+            'error_message' => $data['error_message'] ?? null,
+            'raw_response' => $data,
+        ];
+    }
+
+    /**
+     * Map CinemaUG status to ZyberNet internal status.
+     *
+     * CinemaUG statuses: new, pending_payment, pending, instructions_sent,
+     *   processing_started, successful, failed, reversed, cashed_out
+     */
+    protected function mapStatus(string $cinemaStatus): string
+    {
+        $map = [
+            'new' => 'pending',
+            'pending_payment' => 'pending',
+            'pending' => 'pending',
+            'instructions_sent' => 'instructions_sent',
+            'processing_started' => 'processing_started',
+            'successful' => 'successful',
+            'failed' => 'failed',
+            'reversed' => 'failed',
+            'cashed_out' => 'successful',
+        ];
+
+        return $map[strtolower(trim($cinemaStatus))] ?? 'pending';
     }
 
     /**
