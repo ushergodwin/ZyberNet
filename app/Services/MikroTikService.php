@@ -95,18 +95,20 @@ class MikroTikService
                 ->equal('limit-uptime', $limitUpTime)
                 ->equal('comment', 'Created via Captive Portal');
 
-            // create log entry
+            $result = $this->client->query($query)->read();
+
+            // Log success AFTER query execution
             RouterLog::create([
                 'voucher_id' => $username,
                 'action' => 'create_hotspot_user',
                 'success' => true,
-                'message' => "Created user $username with profile $profile",
+                'message' => "Created user $username with profile $profile on router {$this->router->name}",
                 'is_manual' => false,
                 'router_name' => $this->router->name,
                 'router_id' => $this->router->id ?? null,
             ]);
 
-            return $this->client->query($query)->read();
+            return $result;
         } catch (\Throwable $th) {
             // log failure
             RouterLog::create([

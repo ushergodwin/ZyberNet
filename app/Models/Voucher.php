@@ -67,30 +67,8 @@ class Voucher extends Model
         return Carbon::now()->lessThanOrEqualTo($this->expires_at);
     }
 
-    protected static function booted()
-    {
-        static::created(function ($voucher) {
-            try {
-                $router = \App\Models\RouterConfiguration::first();
-                if (config('app.env') != 'local') {
-                    $mikrotik = new \App\Services\MikroTikService($router);
-
-                    $mikrotik->createHotspotUser(
-                        $voucher->code,
-                        $voucher->code,
-                        $voucher->package->session_timeout,
-                        $voucher->package->profile_name
-                    );
-
-                    Log::info('Voucher created: ' . $voucher->code, [
-                        'voucher' => $voucher,
-                    ]);
-                }
-            } catch (\Throwable $th) {
-                Log::error('Failed to create MikroTik user: ' . $th->getMessage());
-            }
-        });
-    }
+    // MikroTik hotspot user creation is handled by VoucherService::createVouchersAndPushToRouter()
+    // which creates the user on the correct router BEFORE Voucher::create() is called.
 
     public function routerLogs()
     {

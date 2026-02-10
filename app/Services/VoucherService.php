@@ -123,25 +123,30 @@ class VoucherService
 
     static function generateVoucherCode(int $length = 6, string $type = 'nl'): string
     {
-        $characters = '';
+        $characters = match ($type) {
+            'n' => '0123456789',
+            'l' => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+            default => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        };
 
-        switch ($type) {
-            case 'n': // Numbers only
-                $characters = '0123456789';
-                break;
-            case 'l': // Letters only
-                $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                break;
-            case 'nl': // Numbers and letters
-            default:
-                $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                break;
+        $maxIndex = strlen($characters) - 1;
+        $maxAttempts = 10;
+
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            $code = '';
+            for ($i = 0; $i < $length; $i++) {
+                $code .= $characters[random_int(0, $maxIndex)];
+            }
+
+            // Ensure code doesn't already exist (including soft-deleted vouchers)
+            if (!Voucher::withTrashed()->where('code', $code)->exists()) {
+                return $code;
+            }
         }
 
+        // Fallback: if all attempts collide, increase length by 1
         $code = '';
-        $maxIndex = strlen($characters) - 1;
-
-        for ($i = 0; $i < $length; $i++) {
+        for ($i = 0; $i < $length + 1; $i++) {
             $code .= $characters[random_int(0, $maxIndex)];
         }
 
