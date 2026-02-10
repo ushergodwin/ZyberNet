@@ -45,7 +45,11 @@ class Voucher extends Model
     }
     public function getIsActiveAttribute()
     {
-        // return true if the voucher expiry date is in the future
+        // Unactivated vouchers haven't started their countdown yet — not expired
+        if (is_null($this->activated_at)) {
+            return true;
+        }
+
         return Carbon::now()->lessThanOrEqualTo($this->expires_at);
     }
 
