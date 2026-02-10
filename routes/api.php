@@ -89,6 +89,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('/wireguard')->group(function () {
             // add peer
             Route::post('/peers', [App\Http\Controllers\Api\WireguardController::class, 'addPeer'])->name('configuration.addWireguardPeer');
+            // parse pasted wireguard output
+            Route::post('/parse', [App\Http\Controllers\Api\WireguardController::class, 'parseWireguardOutput'])->name('configuration.parseWireguardOutput');
         });
     });
 
