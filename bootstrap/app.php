@@ -27,5 +27,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('app:check-pending-transactions')->everyTwoMinutes()->withoutOverlapping();
         //app:cleanup-expired-vouchers
         $schedule->command('app:cleanup-expired-vouchers')->everyThirtyMinutes()->withoutOverlapping();
+        $schedule->command('app:refresh-dashboard-stats')->hourly()->withoutOverlapping();
     })
     ->create();
