@@ -38,7 +38,7 @@ class PaymentGatewayFactory
             return self::instantiate(self::resolveAutoSwitchGateway());
         }
 
-        return self::instantiate(config('services.payment_gateway', 'yopayments'));
+        return self::instantiate(self::resolveTimeBasedGateway());
     }
 
     /**
@@ -123,6 +123,24 @@ class PaymentGatewayFactory
             Cache::put('gateway_switch_counter', $counter + 1);
             Cache::put('gateway_current', $currentGateway);
         }
+    }
+
+    /**
+     * Resolve gateway based on time of day.
+     * YoPayments during the day (9 AM - 9 PM), CinemaUG at night (9 PM - 9 AM).
+     *
+     * @return string Gateway name
+     */
+    protected static function resolveTimeBasedGateway(): string
+    {
+        $hour = (int) now()->format('H');
+
+        // Day: 9 AM (09:00) to before 9 PM (21:00)
+        if ($hour >= 9 && $hour < 21) {
+            return 'yopayments';
+        }
+
+        return 'cinemaug';
     }
 
     /**
