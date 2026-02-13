@@ -121,7 +121,10 @@ class VoucherService
         }
     }
 
-    static function generateVoucherCode(int $length = 6, string $type = 'nl'): string
+    /**
+     * @param array $exclude Codes to exclude (e.g. codes already generated in the current batch)
+     */
+    static function generateVoucherCode(int $length = 6, string $type = 'nl', array $exclude = []): string
     {
         $characters = match ($type) {
             'n' => '0123456789',
@@ -130,23 +133,27 @@ class VoucherService
         };
 
         $maxIndex = strlen($characters) - 1;
-        $maxAttempts = 10;
+        $excludeSet = array_flip($exclude);
+        $maxAttempts = 20;
 
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            // After 10 failed attempts, increase length by 1
+            $currentLength = $attempt >= 10 ? $length + 1 : $length;
+
             $code = '';
-            for ($i = 0; $i < $length; $i++) {
+            for ($i = 0; $i < $currentLength; $i++) {
                 $code .= $characters[random_int(0, $maxIndex)];
             }
 
-            // Ensure code doesn't already exist (including soft-deleted vouchers)
-            if (!Voucher::withTrashed()->where('code', $code)->exists()) {
+            // Check both in-batch duplicates and DB
+            if (!isset($excludeSet[$code]) && !Voucher::withTrashed()->where('code', $code)->exists()) {
                 return $code;
             }
         }
 
-        // Fallback: if all attempts collide, increase length by 1
+        // Last resort: use length + 2
         $code = '';
-        for ($i = 0; $i < $length + 1; $i++) {
+        for ($i = 0; $i < $length + 2; $i++) {
             $code .= $characters[random_int(0, $maxIndex)];
         }
 

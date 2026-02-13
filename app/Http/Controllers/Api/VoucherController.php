@@ -109,14 +109,16 @@ class VoucherController extends Controller
         $quantity = $request->input('quantity');
 
         $voucherDataList = [];
+        $batchCodes = [];
+
+        $session_timeout = $package->session_timeout;
+        $duration = (int) substr($session_timeout, 0, -1);
+        $unit = substr($session_timeout, -1);
+        $expiresAt = now()->add($unit === 'd' ? "{$duration} days" : "{$duration} hours");
 
         for ($i = 0; $i < $quantity; $i++) {
-            $session_timeout = $package->session_timeout;
-            $duration = (int) substr($session_timeout, 0, -1);
-            $unit = substr($session_timeout, -1);
-
-            $expiresAt = now()->add($unit === 'd' ? "{$duration} days" : "{$duration} hours");
-            $code = VoucherService::generateVoucherCode($request->voucher_length, $request->voucher_format);
+            $code = VoucherService::generateVoucherCode($request->voucher_length, $request->voucher_format, $batchCodes);
+            $batchCodes[] = $code;
             $voucherDataList[] = [
                 'code'            => $code,
                 'package_id'      => $package->id,
