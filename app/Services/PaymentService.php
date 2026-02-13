@@ -238,23 +238,36 @@ class PaymentService
                 : $session_timeout . ' hours'
         );
 
-        $code = VoucherService::generateVoucherCode(4);
-
-        $voucherData = [
-            'code' => $code,
-            'transaction_id' => $transaction->id,
-            'package_id' => $transaction->package_id,
-            'expires_at' => $expiresAt,
-            'session_timeout' => $transaction->package->session_timeout,
-            'profile_name' => $transaction->package->profile_name,
-        ];
-
         $voucherService = new VoucherService();
         $router = $transaction->package->router;
+        $maxRetries = 3;
 
-        $vouchers = $voucherService->createVouchersAndPushToRouter([$voucherData], $router);
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            $code = VoucherService::generateVoucherCode(4);
 
-        return $vouchers[0] ?? null;
+            $voucherData = [
+                'code' => $code,
+                'transaction_id' => $transaction->id,
+                'package_id' => $transaction->package_id,
+                'expires_at' => $expiresAt,
+                'session_timeout' => $transaction->package->session_timeout,
+                'profile_name' => $transaction->package->profile_name,
+            ];
+
+            try {
+                $vouchers = $voucherService->createVouchersAndPushToRouter([$voucherData], $router);
+                return $vouchers[0] ?? null;
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Retry on duplicate code (race condition)
+                if ($e->errorInfo[1] === 1062 && $attempt < $maxRetries) {
+                    Log::warning("Voucher code collision on attempt {$attempt}, retrying with new code.");
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        return null;
     }
 
     /**

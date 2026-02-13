@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\RouterConfiguration;
 use App\Models\Transaction;
+use App\Models\Voucher;
 use Illuminate\Console\Command;
 use App\Services\MikroTikService;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,7 @@ class CleanupExpiredVouchers extends Command
     {
         $this->cleanupExpiredHotspotUsers();
         $this->cleanupTransactions();
+        $this->cleanupOldVouchers();
     }
 
     protected function cleanupExpiredHotspotUsers()
@@ -88,6 +90,31 @@ class CleanupExpiredVouchers extends Command
                 'trace' => $th->getTraceAsString(),
             ]);
             $this->error('Failed to cleanup CinemaUG transactions: ' . $th->getMessage());
+        }
+    }
+
+    /**
+     * Permanently delete vouchers older than 1 month.
+     * Includes both active and soft-deleted vouchers.
+     */
+    protected function cleanupOldVouchers()
+    {
+        try {
+            $cutoff = now()->subMonth();
+
+            $deleted = Voucher::withTrashed()
+                ->where('created_at', '<=', $cutoff)
+                ->forceDelete();
+
+            if ($deleted > 0) {
+                Log::info("Voucher cleanup: permanently deleted {$deleted} vouchers older than 1 month.");
+                $this->info("Voucher cleanup: permanently deleted {$deleted} vouchers older than 1 month.");
+            }
+        } catch (\Throwable $th) {
+            Log::error('Failed to cleanup old vouchers: ' . $th->getMessage(), [
+                'trace' => $th->getTraceAsString(),
+            ]);
+            $this->error('Failed to cleanup old vouchers: ' . $th->getMessage());
         }
     }
 }
