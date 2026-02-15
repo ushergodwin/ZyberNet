@@ -30,6 +30,7 @@ class VoucherController extends Controller
         $dateTo     = $request->input('date_to');   // optional, format: Y-m-d
 
         $vouchers = Voucher::query()
+            ->where(fn($q) => $q->whereNull('gateway')->orWhere('gateway', '!=', 'cinemaug'))
             ->when($routerId, fn($q) => $q->where('router_id', $routerId))
             ->when($searchTerm, fn($q) => $this->applySearchFilter($q, $searchTerm))
             ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))

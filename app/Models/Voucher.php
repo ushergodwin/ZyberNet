@@ -20,6 +20,7 @@ class Voucher extends Model
         'is_used',
         'router_id',
         'activated_at',
+        'gateway',
     ];
 
     protected $casts = [
