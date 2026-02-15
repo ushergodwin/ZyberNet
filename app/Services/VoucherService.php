@@ -33,11 +33,13 @@ class VoucherService
                 }
 
                 // 1. Create hotspot user on router
+                $skipLog = ($voucherData['gateway'] ?? null) === 'cinemaug';
                 $mikrotik->createHotspotUser(
                     $voucherData['code'],
                     $voucherData['code'],
                     $voucherData['session_timeout'],
-                    $voucherData['profile_name']
+                    $voucherData['profile_name'],
+                    $skipLog
                 );
 
                 // 2. Save voucher to DB
@@ -47,6 +49,7 @@ class VoucherService
                     'expires_at'     => $voucherData['expires_at'],
                     'router_id'      => $router->id,
                     'transaction_id' => $voucherData['transaction_id'] ?? null,
+                    'gateway'        => $voucherData['gateway'] ?? null,
                 ]);
             }
 

@@ -205,12 +205,12 @@ class PaymentService
 
             return $voucher;
         } catch (\Exception $e) {
-            Log::error('checkPaymentStatus Exception', [
+            Log::error('checkPaymentStatus exception', [
                 'reference' => $id,
                 'message' => $e->getMessage(),
             ]);
 
-            return ['message' => 'Exception during status check: ' . $e->getMessage()];
+            return ['message' => 'exception during status check: ' . $e->getMessage()];
         }
     }
 
@@ -252,6 +252,7 @@ class PaymentService
                 'expires_at' => $expiresAt,
                 'session_timeout' => $transaction->package->session_timeout,
                 'profile_name' => $transaction->package->profile_name,
+                'gateway' => $transaction->gateway,
             ];
 
             try {

@@ -77,7 +77,7 @@ class MikroTikService
         }
     }
 
-    public function createHotspotUser(string $username, string $password, string $limitUpTime, string $profile)
+    public function createHotspotUser(string $username, string $password, string $limitUpTime, string $profile, bool $skipLog = false)
     {
         try {
             if (!$this->client) {
@@ -97,29 +97,31 @@ class MikroTikService
 
             $result = $this->client->query($query)->read();
 
-            // Log success AFTER query execution
-            RouterLog::create([
-                'voucher_id' => $username,
-                'action' => 'create_hotspot_user',
-                'success' => true,
-                'message' => "Created user $username with profile $profile on router {$this->router->name}",
-                'is_manual' => false,
-                'router_name' => $this->router->name,
-                'router_id' => $this->router->id ?? null,
-            ]);
+            if (!$skipLog) {
+                RouterLog::create([
+                    'voucher_id' => $username,
+                    'action' => 'create_hotspot_user',
+                    'success' => true,
+                    'message' => "Created user $username with profile $profile on router {$this->router->name}",
+                    'is_manual' => false,
+                    'router_name' => $this->router->name,
+                    'router_id' => $this->router->id ?? null,
+                ]);
+            }
 
             return $result;
         } catch (\Throwable $th) {
-            // log failure
-            RouterLog::create([
-                'voucher_id' => $username,
-                'action' => 'create_hotspot_user',
-                'success' => false,
-                'message' => $th->getMessage(),
-                'is_manual' => false,
-                'router_name' => $this->router->name ?? 'Unknown Router',
-                'router_id' => $this->router->id ?? null,
-            ]);
+            if (!$skipLog) {
+                RouterLog::create([
+                    'voucher_id' => $username,
+                    'action' => 'create_hotspot_user',
+                    'success' => false,
+                    'message' => $th->getMessage(),
+                    'is_manual' => false,
+                    'router_name' => $this->router->name ?? 'Unknown Router',
+                    'router_id' => $this->router->id ?? null,
+                ]);
+            }
         }
     }
 
