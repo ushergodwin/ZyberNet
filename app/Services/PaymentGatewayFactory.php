@@ -135,8 +135,8 @@ class PaymentGatewayFactory
     {
         $hour = (int) now()->format('H');
 
-        // Day: 9 AM (09:00) to before 10 PM (22:00)
-        if ($hour >= 9 && $hour < 22) {
+        // Day: 9 AM (09:00) to before 9 PM (21:00)
+        if ($hour >= 9 && $hour < 21) {
             return 'yopayments';
         }
 
