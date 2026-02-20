@@ -280,15 +280,14 @@ watch(() => state.selectedRouterId, (newRouterId) => {
         </div>
 
         <!-- Your page content here -->
-        <div class="card card-body shadow">
-            <!-- List of vouchers will be displayed here -->
-            <div v-if="state.loading" class="text-center py-5">
-                <i class="fas fa-spinner fa-spin fa-2x"></i> Loading packages....
+        <div class="card card-body shadow position-relative">
+            <!-- Loading overlay -->
+            <div v-if="state.loading || state.loadingRouters"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10;">
+                <span class="spinner-border text-primary"></span>
             </div>
-            <div v-if="state.loadingRouters" class="text-center py-5">
-                <i class="fas fa-spinner fa-spin fa-2x"></i> Loading routers....
-            </div>
-            <table v-if="!state.loading && state.vouchersPackages.length && !state.loadingRouters"
+            <table v-if="state.vouchersPackages.length"
                 class="table table-light table-hover align-middle mb-0 w-100">
                 <thead>
                     <tr>
@@ -333,7 +332,7 @@ watch(() => state.selectedRouterId, (newRouterId) => {
                     </tr>
                 </tbody>
             </table>
-            <div v-if="!state.loading && !state.vouchersPackages.length && !state.loadingRouters"
+            <div v-if="!state.vouchersPackages.length && !state.loading && !state.loadingRouters"
                 class="text-center py-5">
                 <p>No Data Plans available.</p>
             </div>

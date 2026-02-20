@@ -315,7 +315,13 @@ onMounted(() => {
                 <i class="fas fa-plus me-2"></i> Add Router
             </button>
         </div>
-        <div class="card card-body mt-1 shadow" @scroll="onScroll">
+        <div class="card card-body mt-1 shadow position-relative" @scroll="onScroll">
+            <!-- Loading overlay -->
+            <div v-if="loading"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10;">
+                <span class="spinner-border text-primary"></span>
+            </div>
             <table class="table table-light table-hover align-middle mb-0 w-100">
                 <thead>
                     <tr>
@@ -354,9 +360,6 @@ onMounted(() => {
                     </tr>
                 </tbody>
             </table>
-            <div v-if="loading" class="text-center py-3">
-                <span class="spinner-border spinner-border-sm"></span> Loading...
-            </div>
             <div v-if="!hasMore && routers.length > 0" class="text-center text-muted py-2">
                 End of list
             </div>

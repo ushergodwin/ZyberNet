@@ -243,7 +243,7 @@ onUnmounted(() => {
                     </button>
 
                     <!-- filter users, all or trashed-->
-                    <select class="form-select form-select-sm w-auto" v-model="state.tab">
+                    <select class="form-select form-select-sm w-auto" v-model="state.tab" :disabled="state.loading">
                         <option :value="0">All Users</option>
                         <option :value="1">Deleted Users</option>
                     </select>
@@ -251,7 +251,13 @@ onUnmounted(() => {
             </section>
         </div>
         <section class="mt-3 mb-3">
-            <div class="card card-body shadow" v-if="state.tab == 0">
+            <div class="card card-body shadow position-relative" v-if="state.tab == 0">
+                <!-- Loading overlay -->
+                <div v-if="state.loading"
+                    class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style="background: rgba(255,255,255,0.65); z-index: 10;">
+                    <span class="spinner-border text-primary"></span>
+                </div>
                 <table class="table table-striped table-hover" v-if="state.users.length">
                     <thead>
                         <tr>
@@ -281,11 +287,7 @@ onUnmounted(() => {
                         </tr>
                     </tbody>
                 </table>
-                <!-- Loading and error handling -->
-                <div v-if="state.loading" class="text-center my-3">
-                    <i class="fas fa-spinner fa-spin"></i> Loading...
-                </div>
-                <div v-if="!state.users.length" class="text-danger text-center my-3">
+                <div v-if="!state.users.length && !state.loading" class="text-danger text-center my-3">
                     <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No users found." }}
                 </div>
                 <!-- build pages -->
@@ -321,7 +323,13 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <div class="card card-body shadow" v-if="state.tab == 1">
+            <div class="card card-body shadow position-relative" v-if="state.tab == 1">
+                <!-- Loading overlay -->
+                <div v-if="state.loading"
+                    class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style="background: rgba(255,255,255,0.65); z-index: 10;">
+                    <span class="spinner-border text-primary"></span>
+                </div>
                 <table class="table table-striped table-hover" v-if="state.users.length">
                     <thead>
                         <tr>
@@ -346,11 +354,7 @@ onUnmounted(() => {
                         </tr>
                     </tbody>
                 </table>
-                <!-- Loading and error handling -->
-                <div v-if="state.loading" class="text-center my-3">
-                    <i class="fas fa-spinner fa-spin"></i> Loading...
-                </div>
-                <div v-if="!state.users.length" class="text-danger text-center my-3">
+                <div v-if="!state.users.length && !state.loading" class="text-danger text-center my-3">
                     <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No users found." }}
                 </div>
                 <!-- build pages -->

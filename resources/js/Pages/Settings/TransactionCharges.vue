@@ -179,7 +179,7 @@ onUnmounted(() => {
         <div class="d-flex justify-content-end align-items-center mt-3 mb-3">
             <section>
                 <div class="d-flex gap-3">
-                    <select class="form-select w-auto" v-model="state.selectedNetwork">
+                    <select class="form-select w-auto" v-model="state.selectedNetwork" :disabled="state.loading">
                         <option value="">All Networks</option>
                         <option value="MTN">MTN</option>
                         <option value="AIRTEL">AIRTEL</option>
@@ -192,7 +192,13 @@ onUnmounted(() => {
             </section>
         </div>
 
-        <div class="card card-body shadow">
+        <div class="card card-body shadow position-relative">
+            <!-- Loading overlay -->
+            <div v-if="state.loading"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10;">
+                <span class="spinner-border text-primary"></span>
+            </div>
             <table class="table table-striped table-hover" v-if="state.transactionCharges.length">
                 <thead>
                     <tr>
@@ -229,10 +235,6 @@ onUnmounted(() => {
                 </tbody>
             </table>
 
-            <!-- Loading and error handling -->
-            <div v-if="state.loading" class="text-center my-3">
-                <i class="fas fa-spinner fa-spin"></i> Loading...
-            </div>
             <div v-if="!state.transactionCharges.length && !state.loading" class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No transaction charges found." }}
             </div>
