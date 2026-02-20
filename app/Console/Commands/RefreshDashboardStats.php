@@ -62,9 +62,10 @@ class RefreshDashboardStats extends Command
 
         $allTime = $period === 'all_time';
 
-        // Base transaction query (successful YoPayments only — CinemaUG txns are cleaned up)
+        // Base transaction query: yopayments (mobile money) + shop (cash).
+        // CinemaUG txns are periodically hard-deleted so they are excluded.
         $base = Transaction::where('status', 'successful')
-            ->where('gateway', 'yopayments')
+            ->whereIn('gateway', ['yopayments', 'shop'])
             ->when($routerId, fn($q) => $q->where('router_id', $routerId))
             ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]));
 
