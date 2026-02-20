@@ -97,14 +97,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('/vouchers')->group(function () {
         // vouchers
         Route::get('/', [VoucherController::class, 'getVouchers']);
+        // generate voucher (specific path before wildcard)
+        Route::post('/generate', [VoucherController::class, 'generateVoucher'])->name('configuration.generateVoucher');
+        // push a voucher to router by code (specific path before wildcard)
+        Route::post('/push-by-code', [RouterController::class, 'pushToRouterByCode'])->name('vouchers.pushByCode');
         //getVoucher
         Route::get('/{id}', [VoucherController::class, 'getVoucher']);
         //get voucher transaction details
         Route::get('/{id}/transaction', [VoucherController::class, 'getVoucherTransaction'])->name('configuration.voucherTransaction');
         // save transaction
         Route::post('/{id}/transaction', [VoucherController::class, 'saveVoucherTransaction'])->name('configuration.saveVoucherTransaction');
-        // generate voucher
-        Route::post('/generate', [VoucherController::class, 'generateVoucher'])->name('configuration.generateVoucher');
+        // push a voucher to router by DB id
+        Route::post('/{id}/push-to-router', [RouterController::class, 'pushToRouter'])->name('vouchers.pushToRouter');
         // destroy voucher
         Route::delete('/{code}', [VoucherController::class, 'destroy'])->name('configuration.destroyVoucher');
     });

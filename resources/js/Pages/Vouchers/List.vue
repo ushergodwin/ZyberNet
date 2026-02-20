@@ -55,6 +55,11 @@ const state = reactive({
     selectedVouchers: [],
     currentUser: null,
     loadingRouters: false,
+    // push-to-router
+    createModalTab: 'generate',
+    pushCodeInput: '',
+    pushingByCode: false,
+    pushingVoucherId: null as number | null,
 });
 
 onMounted(() => {
@@ -480,6 +485,47 @@ const deleteSelectedVouchers = () => {
         }
     })
 }
+
+/** Push a single voucher (by DB id) to its router */
+const pushToRouter = (voucher) => {
+    swalConfirm.fire({
+        title: 'Push to Router',
+        text: `Re-create voucher "${voucher.code}" on its assigned router? Any accumulated usage on the router will be reset.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, push!',
+        reverseButtons: true,
+    }).then((result) => {
+        if (!result.isConfirmed) return;
+        state.pushingVoucherId = voucher.id;
+        axios.post(`/api/vouchers/${voucher.id}/push-to-router`)
+            .then((res) => {
+                state.pushingVoucherId = null;
+                swalNotification('success', res.data.message || 'Voucher pushed successfully.');
+            })
+            .catch((err) => {
+                state.pushingVoucherId = null;
+                swalNotification('error', err.response?.data?.error || 'Failed to push voucher.');
+            });
+    });
+};
+
+/** Push a voucher to its router by code (used in the modal form) */
+const pushToRouterByCode = () => {
+    const code = state.pushCodeInput.trim().toUpperCase();
+    if (!code) return swalNotification('error', 'Please enter a voucher code.');
+    state.pushingByCode = true;
+    axios.post('/api/vouchers/push-by-code', { code })
+        .then((res) => {
+            state.pushingByCode = false;
+            state.pushCodeInput = '';
+            swalNotification('success', res.data.message || 'Voucher pushed successfully.');
+        })
+        .catch((err) => {
+            state.pushingByCode = false;
+            swalNotification('error', err.response?.data?.error || 'Failed to push voucher.');
+        });
+};
 </script>
 
 <template>
@@ -584,6 +630,14 @@ const deleteSelectedVouchers = () => {
                                 <a href="#" v-if="hasPermission('print_vouchers', state.currentUser?.permissions_list)"
                                     @click.prevent="printSingleVoucher(voucher)" class="text-info"><i
                                         class="fas fa-print"></i></a>
+                                <a href="#"
+                                    v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)"
+                                    @click.prevent="pushToRouter(voucher)"
+                                    class="text-warning"
+                                    title="Push to Router">
+                                    <i class="fas fa-spinner fa-spin" v-if="state.pushingVoucherId === voucher.id"></i>
+                                    <i class="fas fa-wifi" v-else></i>
+                                </a>
                                 <a href="#" v-if="hasPermission('delete_vouchers', state.currentUser?.permissions_list)"
                                     @click.prevent="deleteVoucher(voucher)" class="text-danger"><i
                                         class="fas fa-trash-alt"></i></a>
@@ -638,56 +692,106 @@ const deleteSelectedVouchers = () => {
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Create Vouchers</h5>
+                        <h5 class="modal-title">Voucher Management</h5>
                         <button type="button" class="btn-close" @click="state.showCreateModal = false"></button>
                     </div>
                     <div class="modal-body">
-                        <!-- Router -->
-                        <div class="mb-3">
-                            <label for="router_id" class="form-label">Select Router</label>
-                            <select v-model="state.selectedRouterId" class="form-select input-rounded">
-                                <option v-for="router in state.routers" :key="router.id" :value="router.id">
-                                    {{ router.name }}
-                                </option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-3 mb-3">
-                                <label for="package_id" class="form-label">Select Data Plan</label>
-                                <select v-model="state.form.package_id" class="form-select input-rounded">
-                                    <option value="" disabled> -- select a plan --</option>
-                                    <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">{{ pkg.name
-                                    }} - {{ pkg.formatted_price }}</option>
+
+                        <!-- Tab Pills -->
+                        <ul class="nav nav-pills mb-4">
+                            <li class="nav-item">
+                                <button class="nav-link"
+                                    :class="{ active: state.createModalTab === 'generate' }"
+                                    @click="state.createModalTab = 'generate'">
+                                    <i class="fas fa-plus me-1"></i> Generate Batch
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link"
+                                    :class="{ active: state.createModalTab === 'push' }"
+                                    @click="state.createModalTab = 'push'">
+                                    <i class="fas fa-wifi me-1"></i> Push to Router
+                                </button>
+                            </li>
+                        </ul>
+
+                        <!-- Generate Batch Tab -->
+                        <div v-show="state.createModalTab === 'generate'">
+                            <!-- Router -->
+                            <div class="mb-3">
+                                <label class="form-label">Select Router</label>
+                                <select v-model="state.selectedRouterId" class="form-select input-rounded">
+                                    <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                        {{ router.name }}
+                                    </option>
                                 </select>
                             </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="quantity" class="form-label">Number of Vouchers</label>
-                                <input type="number" v-model="state.form.quantity" min="1"
-                                    class="form-control input-rounded" />
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Select Data Plan</label>
+                                    <select v-model="state.form.package_id" class="form-select input-rounded">
+                                        <option value="" disabled> -- select a plan --</option>
+                                        <option v-for="pkg in state.packages" :key="pkg.id" :value="pkg.id">
+                                            {{ pkg.name }} - {{ pkg.formatted_price }}
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Number of Vouchers</label>
+                                    <input type="number" v-model="state.form.quantity" min="1"
+                                        class="form-control input-rounded" />
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Voucher Length</label>
+                                    <select class="form-select" v-model="state.form.voucher_length">
+                                        <option :value="4">4</option>
+                                        <option :value="5">5</option>
+                                        <option :value="6">6</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Voucher Format</label>
+                                    <select class="form-select" v-model="state.form.voucher_format">
+                                        <option value="n">Numbers Only</option>
+                                        <option value="l">Letters Only</option>
+                                        <option value="nl">Numbers &amp; Letters</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="voucher_length" class="form-label">Voucher Length</label>
-                                <select class="form-select" v-model="state.form.voucher_length">
-                                    <option :value="4">4</option>
-                                    <option :value="5">5</option>
-                                    <option :value="6">6</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="voucher_format" class="form-label">Voucher Format</label>
-                                <select class="form-select" v-model="state.form.voucher_format">
-                                    <option value="n">Numbers Only</option>
-                                    <option value="l">Letters Only</option>
-                                    <option value="nl">Numbers & Letters</option>
-                                </select>
+                            <div class="d-flex justify-content-end">
+                                <button class="btn btn-primary" @click="generateVouchers" :disabled="state.loading">
+                                    <i class="fas fa-plus"></i> Generate Vouchers
+                                </button>
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-end">
-                            <button class="btn btn-primary" @click="generateVouchers" :disabled="state.loading">
-                                <i class="fas fa-plus"></i> Generate Vouchers
-                            </button>
+                        <!-- Push to Router Tab -->
+                        <div v-show="state.createModalTab === 'push'">
+                            <p class="text-muted small mb-3">
+                                Enter a voucher code to (re-)push it to its assigned router. Use this to fix a voucher
+                                showing "uptime limit reached" — the router entry will be deleted and recreated fresh.
+                            </p>
+                            <div class="input-group">
+                                <input
+                                    type="text"
+                                    v-model="state.pushCodeInput"
+                                    class="form-control"
+                                    placeholder="Enter voucher code…"
+                                    @keyup.enter="pushToRouterByCode"
+                                    :disabled="state.pushingByCode"
+                                    style="text-transform:uppercase"
+                                />
+                                <button
+                                    class="btn btn-warning"
+                                    @click="pushToRouterByCode"
+                                    :disabled="state.pushingByCode || !state.pushCodeInput.trim()">
+                                    <i class="fas fa-spinner fa-spin" v-if="state.pushingByCode"></i>
+                                    <i class="fas fa-wifi" v-else></i>
+                                    Push
+                                </button>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             </div>
