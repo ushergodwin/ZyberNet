@@ -535,11 +535,17 @@ const pushToRouterByCode = () => {
             <section>
                 <div class="d-flex gap-3 flex-wrap">
                     <!-- Router Selection -->
-                    <select v-model="state.selectedRouterId" class="form-select w-auto">
-                        <option :value="0">All Routers</option>
-                        <option v-for="router in state.routers" :key="router.id" :value="router.id">{{ router.name }}
-                        </option>
-                    </select>
+                    <div class="d-flex align-items-center gap-2">
+                        <select v-model="state.selectedRouterId" class="form-select w-auto"
+                            :disabled="state.loading || state.loadingRouters">
+                            <option :value="0">All Routers</option>
+                            <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                {{ router.name }}
+                            </option>
+                        </select>
+                        <i class="fas fa-spinner fa-spin text-muted"
+                            v-show="state.loadingRouters || state.loading"></i>
+                    </div>
                 </div>
             </section>
         </div>
@@ -549,7 +555,8 @@ const pushToRouterByCode = () => {
                 <div class="d-flex gap-3 flex-wrap">
                     <!-- Search / Status Filter -->
                     <select class="form-select w-auto" v-model="state.searchQuery"
-                        @change="handleSearch(state.searchQuery)">
+                        @change="handleSearch(state.searchQuery)"
+                        :disabled="state.loading">
                         <option value="">All Vouchers</option>
                         <option value="activated:Y">Activated</option>
                         <option value="activated:N">Not Activated</option>
@@ -558,12 +565,15 @@ const pushToRouterByCode = () => {
                     </select>
 
                     <!-- From Date -->
-                    <input type="text" ref="dateFromRef" class="form-control w-auto" placeholder="From Date" readonly />
+                    <input type="text" ref="dateFromRef" class="form-control w-auto" placeholder="From Date" readonly
+                        :disabled="state.loading" />
                     <!-- To Date -->
-                    <input type="text" ref="dateToRef" class="form-control w-auto" placeholder="To Date" readonly />
+                    <input type="text" ref="dateToRef" class="form-control w-auto" placeholder="To Date" readonly
+                        :disabled="state.loading" />
 
                     <!-- Reset Filter -->
-                    <button class="btn btn-secondary" @click="handleSearch('clear_filter')">
+                    <button class="btn btn-secondary" @click="handleSearch('clear_filter')"
+                        :disabled="state.loading">
                         Clear Filters
                     </button>
                     <button class="btn btn-primary" @click="state.showCreateModal = true"
@@ -583,7 +593,20 @@ const pushToRouterByCode = () => {
         </div>
 
         <!-- Vouchers Table -->
-        <div class="card card-body shadow table-responsive" style="overflow-x: auto; max-width: 100%;">
+        <div class="card card-body shadow table-responsive position-relative" style="overflow-x: auto; max-width: 100%;">
+
+            <!-- Loading overlay — sits above stale rows while fetching -->
+            <div v-show="state.loading || state.loadingRouters"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10; min-height: 80px;">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                    <div class="mt-2 text-muted small">
+                        {{ state.loadingRouters ? 'Loading routers…' : 'Loading vouchers…' }}
+                    </div>
+                </div>
+            </div>
+
             <table class="table table-striped" style="min-width: 1200px; width: auto;" v-if="state.vouchers.length">
                 <thead>
                     <tr>
@@ -650,10 +673,6 @@ const pushToRouterByCode = () => {
                 </tbody>
             </table>
 
-            <div v-if="state.loading" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading
-                vouchers...</div>
-            <div v-if="state.loadingRouters" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i>
-                Loading routers...</div>
             <div v-if="!state.vouchers.length && !state.loading && !state.loadingRouters"
                 class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No vouchers found." }}

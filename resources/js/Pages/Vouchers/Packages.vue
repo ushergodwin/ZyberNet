@@ -259,14 +259,18 @@ watch(() => state.selectedRouterId, (newRouterId) => {
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h3">Data Plans</h4>
             <div>
-                <section class="d-flex gap-3">
+                <section class="d-flex gap-3 align-items-center">
                     <!-- Router Selection -->
-                    <select v-model="state.selectedRouterId" class="form-select w-auto">
-                        <option :value="0">All Routers</option>
-                        <option v-for="router in state.routers" :key="router.id" :value="router.id">
-                            {{ router.name }}
-                        </option>
-                    </select>
+                    <div class="d-flex align-items-center gap-2">
+                        <select v-model="state.selectedRouterId" class="form-select w-auto"
+                            :disabled="state.loading || state.loadingRouters">
+                            <option :value="0">All Routers</option>
+                            <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                {{ router.name }}
+                            </option>
+                        </select>
+                        <span v-show="state.loadingRouters" class="spinner-border spinner-border-sm text-secondary"></span>
+                    </div>
                     <button class="btn btn-primary" @click="openModal(false)"
                         v-if="hasPermission('create_data_plans', state.currentUser?.permissions_list)">
                         <i class="fas fa-plus"></i> Add Data Plan

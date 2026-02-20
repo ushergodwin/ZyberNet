@@ -282,6 +282,7 @@ function testRouterConnection(id: number) {
     showLoader("Testing connection...");
     axios.post(`/api/configuration/routers/${id}/test`)
         .then((res: any) => {
+            hideLoader();
             if (res.status === 200) {
                 swalNotification("success", "Router connection successful.");
             } else {
@@ -289,6 +290,7 @@ function testRouterConnection(id: number) {
             }
         })
         .catch(() => {
+            hideLoader();
             swalNotification("error", "Failed to connect to router.");
         });
 }
