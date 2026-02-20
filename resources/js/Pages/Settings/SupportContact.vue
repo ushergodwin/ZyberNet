@@ -218,11 +218,7 @@ onUnmounted(() => {
                     </tr>
                 </tbody>
             </table>
-            <!-- Loading and error handling -->
-            <div v-if="state.loading" class="text-center my-3">
-                <i class="fas fa-spinner fa-spin"></i> Loading...
-            </div>
-            <div v-if="!state.supportContacts.length" class="text-danger text-center my-3">
+            <div v-if="!state.supportContacts.length && !state.loading" class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No support contacts found." }}
             </div>
 
