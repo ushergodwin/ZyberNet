@@ -58,8 +58,6 @@ const state = reactive({
     // push-to-router
     createModalTab: 'generate',
     pushCodeInput: '',
-    pushingByCode: false,
-    pushingVoucherId: null as number | null,
 });
 
 onMounted(() => {
@@ -497,14 +495,14 @@ const pushToRouter = (voucher) => {
         reverseButtons: true,
     }).then((result) => {
         if (!result.isConfirmed) return;
-        state.pushingVoucherId = voucher.id;
+        showLoader('Pushing to router…');
         axios.post(`/api/vouchers/${voucher.id}/push-to-router`)
             .then((res) => {
-                state.pushingVoucherId = null;
+                hideLoader();
                 swalNotification('success', res.data.message || 'Voucher pushed successfully.');
             })
             .catch((err) => {
-                state.pushingVoucherId = null;
+                hideLoader();
                 swalNotification('error', err.response?.data?.error || 'Failed to push voucher.');
             });
     });
@@ -514,15 +512,15 @@ const pushToRouter = (voucher) => {
 const pushToRouterByCode = () => {
     const code = state.pushCodeInput.trim().toUpperCase();
     if (!code) return swalNotification('error', 'Please enter a voucher code.');
-    state.pushingByCode = true;
+    showLoader('Pushing to router…');
     axios.post('/api/vouchers/push-by-code', { code })
         .then((res) => {
-            state.pushingByCode = false;
+            hideLoader();
             state.pushCodeInput = '';
             swalNotification('success', res.data.message || 'Voucher pushed successfully.');
         })
         .catch((err) => {
-            state.pushingByCode = false;
+            hideLoader();
             swalNotification('error', err.response?.data?.error || 'Failed to push voucher.');
         });
 };
@@ -635,8 +633,7 @@ const pushToRouterByCode = () => {
                                     @click.prevent="pushToRouter(voucher)"
                                     class="text-warning"
                                     title="Push to Router">
-                                    <i class="fas fa-spinner fa-spin" v-if="state.pushingVoucherId === voucher.id"></i>
-                                    <i class="fas fa-wifi" v-else></i>
+                                    <i class="fas fa-wifi"></i>
                                 </a>
                                 <a href="#" v-if="hasPermission('delete_vouchers', state.currentUser?.permissions_list)"
                                     @click.prevent="deleteVoucher(voucher)" class="text-danger"><i
@@ -778,15 +775,13 @@ const pushToRouterByCode = () => {
                                     class="form-control"
                                     placeholder="Enter voucher code…"
                                     @keyup.enter="pushToRouterByCode"
-                                    :disabled="state.pushingByCode"
                                     style="text-transform:uppercase"
                                 />
                                 <button
                                     class="btn btn-warning"
                                     @click="pushToRouterByCode"
-                                    :disabled="state.pushingByCode || !state.pushCodeInput.trim()">
-                                    <i class="fas fa-spinner fa-spin" v-if="state.pushingByCode"></i>
-                                    <i class="fas fa-wifi" v-else></i>
+                                    :disabled="!state.pushCodeInput.trim()">
+                                    <i class="fas fa-wifi"></i>
                                     Push
                                 </button>
                             </div>
