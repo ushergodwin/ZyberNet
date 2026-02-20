@@ -245,8 +245,7 @@ const generateVoucher = async (payment_id: number) => {
 
             <input type="text" id="dateFrom" class="form-control w-auto" placeholder="From Date"
                 :disabled="state.loading">
-            <input type="text" id="dateTo" class="form-control w-auto" placeholder="To Date"
-                :disabled="state.loading">
+            <input type="text" id="dateTo" class="form-control w-auto" placeholder="To Date" :disabled="state.loading">
 
             <button class="btn btn-secondary" :disabled="state.loading"
                 @click="() => { state.statusFilter = ''; state.dateFrom = ''; state.dateTo = ''; applyFilters(); }">
@@ -258,7 +257,8 @@ const generateVoucher = async (payment_id: number) => {
         </div>
 
         <!-- Payments Table -->
-        <div class="card card-body shadow table-responsive position-relative" style="overflow-x: auto; max-width: 100%;">
+        <div class="card card-body shadow table-responsive position-relative"
+            style="overflow-x: auto; max-width: 100%;">
             <!-- Loading overlay -->
             <div v-if="state.loading || state.loadingRouters"
                 class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
@@ -285,7 +285,8 @@ const generateVoucher = async (payment_id: number) => {
                         <td>{{ payment.phone_number }}</td>
                         <td>{{ payment.package?.name || 'WTH' }}</td>
                         <td>{{ payment.package?.formatted_price }}</td>
-                        <td>-{{ payment.formatted_charge }}</td>
+                        <td v-if="payment.formatted_charge > 0">-{{ payment.formatted_charge }}</td>
+                        <td v-else>{{ payment.formatted_charge }}</td>
                         <td>{{ payment.formatted_amount }}</td>
                         <td>
                             <span v-if="payment.channel === 'mobile_money'" class="badge bg-primary">Mobile Money</span>
