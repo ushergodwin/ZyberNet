@@ -251,13 +251,7 @@ onUnmounted(() => {
             </section>
         </div>
         <section class="mt-3 mb-3">
-            <div class="card card-body shadow position-relative" v-if="state.tab == 0">
-                <!-- Loading overlay -->
-                <div v-if="state.loading"
-                    class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-                    style="background: rgba(255,255,255,0.65); z-index: 10;">
-                    <span class="spinner-border text-primary"></span>
-                </div>
+            <div class="card card-body shadow" v-if="state.tab == 0">
                 <table class="table table-striped table-hover" v-if="state.users.length">
                     <thead>
                         <tr>
@@ -323,13 +317,7 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <div class="card card-body shadow position-relative" v-if="state.tab == 1">
-                <!-- Loading overlay -->
-                <div v-if="state.loading"
-                    class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-                    style="background: rgba(255,255,255,0.65); z-index: 10;">
-                    <span class="spinner-border text-primary"></span>
-                </div>
+            <div class="card card-body shadow" v-if="state.tab == 1">
                 <table class="table table-striped table-hover" v-if="state.users.length">
                     <thead>
                         <tr>
