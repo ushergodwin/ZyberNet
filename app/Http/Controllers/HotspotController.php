@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\RouterConfiguration;
 use App\Models\SupportContact;
+use App\Models\Transaction;
 use App\Models\Voucher;
 use App\Models\VoucherPackage;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
+use Inertia\Inertia;
 
 class HotspotController extends Controller
 {
@@ -81,6 +83,32 @@ class HotspotController extends Controller
                     'activated_at' => now(),
                     'expires_at'   => $expiresAt,
                 ]);
+
+                // Auto-create a cash transaction for shop-sold (admin-printed) vouchers
+                if ($voucher->gateway === 'shop' && is_null($voucher->transaction_id)) {
+                    try {
+                        $phone = SupportContact::where('router_id', $voucher->router_id)->value('phone_number')
+                              ?? SupportContact::whereNull('router_id')->value('phone_number')
+                              ?? 'N/A';
+
+                        $transaction = Transaction::create([
+                            'phone_number' => $phone,
+                            'amount'       => $voucher->package->price,
+                            'currency'     => 'UGX',
+                            'status'       => 'successful',
+                            'channel'      => 'cash',
+                            'gateway'      => 'shop',
+                            'package_id'   => $voucher->package_id,
+                            'router_id'    => $voucher->router_id,
+                            'charge'       => 0,
+                            'total_amount' => $voucher->package->price,
+                        ]);
+
+                        $voucher->update(['transaction_id' => $transaction->id]);
+                    } catch (\Throwable $e) {
+                        Log::error("Failed to create cash transaction for shop voucher {$voucher->code}: " . $e->getMessage());
+                    }
+                }
             }
         }
 

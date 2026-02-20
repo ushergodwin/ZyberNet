@@ -126,6 +126,7 @@ class VoucherController extends Controller
                 'expires_at'      => $expiresAt,
                 'session_timeout' => $session_timeout,
                 'profile_name'    => $package->profile_name,
+                'gateway'         => 'shop',
             ];
         }
 
