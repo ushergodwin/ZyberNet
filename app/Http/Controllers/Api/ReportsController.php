@@ -74,7 +74,7 @@ class ReportsController extends Controller
         }
 
         $base = Transaction::where('status', 'successful')
-            ->where('gateway', 'yopayments')
+            ->whereIn('gateway', ['yopayments', 'shop'])
             ->when($routerId, fn($q) => $q->where('router_id', $routerId))
             ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]));
 
