@@ -543,8 +543,7 @@ const pushToRouterByCode = () => {
                                 {{ router.name }}
                             </option>
                         </select>
-                        <i class="fas fa-spinner fa-spin text-muted"
-                            v-show="state.loadingRouters || state.loading"></i>
+                        <i class="fas fa-spinner fa-spin text-muted" v-show="state.loadingRouters || state.loading"></i>
                     </div>
                 </div>
             </section>
@@ -555,8 +554,7 @@ const pushToRouterByCode = () => {
                 <div class="d-flex gap-3 flex-wrap">
                     <!-- Search / Status Filter -->
                     <select class="form-select w-auto" v-model="state.searchQuery"
-                        @change="handleSearch(state.searchQuery)"
-                        :disabled="state.loading">
+                        @change="handleSearch(state.searchQuery)" :disabled="state.loading">
                         <option value="">All Vouchers</option>
                         <option value="activated:Y">Activated</option>
                         <option value="activated:N">Not Activated</option>
@@ -572,8 +570,7 @@ const pushToRouterByCode = () => {
                         :disabled="state.loading" />
 
                     <!-- Reset Filter -->
-                    <button class="btn btn-secondary" @click="handleSearch('clear_filter')"
-                        :disabled="state.loading">
+                    <button class="btn btn-secondary" @click="handleSearch('clear_filter')" :disabled="state.loading">
                         Clear Filters
                     </button>
                     <button class="btn btn-primary" @click="state.showCreateModal = true"
@@ -593,7 +590,8 @@ const pushToRouterByCode = () => {
         </div>
 
         <!-- Vouchers Table -->
-        <div class="card card-body shadow table-responsive position-relative" style="overflow-x: auto; max-width: 100%;">
+        <div class="card card-body shadow table-responsive position-relative"
+            style="overflow-x: auto; max-width: 100%;">
 
             <!-- Loading overlay — sits above stale rows while fetching -->
             <div v-show="state.loading || state.loadingRouters"
@@ -646,16 +644,11 @@ const pushToRouterByCode = () => {
                         </td>
                         <td>
                             <div class="d-flex gap-3">
-                                <a href="#" @click.prevent="getVoucherTransaction(voucher)" class="text-primary"><i
-                                        class="fas fa-credit-card"></i></a>
                                 <a href="#" v-if="hasPermission('print_vouchers', state.currentUser?.permissions_list)"
                                     @click.prevent="printSingleVoucher(voucher)" class="text-info"><i
                                         class="fas fa-print"></i></a>
-                                <a href="#"
-                                    v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)"
-                                    @click.prevent="pushToRouter(voucher)"
-                                    class="text-warning"
-                                    title="Push to Router">
+                                <a href="#" v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)"
+                                    @click.prevent="pushToRouter(voucher)" class="text-warning" title="Push to Router">
                                     <i class="fas fa-wifi"></i>
                                 </a>
                                 <a href="#" v-if="hasPermission('delete_vouchers', state.currentUser?.permissions_list)"
@@ -716,15 +709,13 @@ const pushToRouterByCode = () => {
                         <!-- Tab Pills -->
                         <ul class="nav nav-pills mb-4">
                             <li class="nav-item">
-                                <button class="nav-link"
-                                    :class="{ active: state.createModalTab === 'generate' }"
+                                <button class="nav-link" :class="{ active: state.createModalTab === 'generate' }"
                                     @click="state.createModalTab = 'generate'">
                                     <i class="fas fa-plus me-1"></i> Generate Batch
                                 </button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link"
-                                    :class="{ active: state.createModalTab === 'push' }"
+                                <button class="nav-link" :class="{ active: state.createModalTab === 'push' }"
                                     @click="state.createModalTab = 'push'">
                                     <i class="fas fa-wifi me-1"></i> Push to Router
                                 </button>
@@ -788,17 +779,10 @@ const pushToRouterByCode = () => {
                                 showing "uptime limit reached" — the router entry will be deleted and recreated fresh.
                             </p>
                             <div class="input-group">
-                                <input
-                                    type="text"
-                                    v-model="state.pushCodeInput"
-                                    class="form-control"
-                                    placeholder="Enter voucher code…"
-                                    @keyup.enter="pushToRouterByCode"
-                                    style="text-transform:uppercase"
-                                />
-                                <button
-                                    class="btn btn-warning"
-                                    @click="pushToRouterByCode"
+                                <input type="text" v-model="state.pushCodeInput" class="form-control"
+                                    placeholder="Enter voucher code…" @keyup.enter="pushToRouterByCode"
+                                    style="text-transform:uppercase" />
+                                <button class="btn btn-warning" @click="pushToRouterByCode"
                                     :disabled="!state.pushCodeInput.trim()">
                                     <i class="fas fa-wifi"></i>
                                     Push
