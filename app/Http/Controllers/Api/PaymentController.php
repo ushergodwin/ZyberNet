@@ -229,7 +229,8 @@ class PaymentController extends Controller
      */
     private function getStatusBreakdown(Request $request)
     {
-        $query = Transaction::query();
+        $query = Transaction::query()
+            ->whereIn('gateway', ['yopayments', 'shop']);
 
         // Apply same filters except status
         if ($request->filled('router_id') && $request->input('router_id') != 0) {
@@ -382,7 +383,8 @@ class PaymentController extends Controller
             'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
 
-        $query = Transaction::with(['package', 'voucher']);
+        $query = Transaction::with(['package', 'voucher'])
+            ->whereIn('gateway', ['yopayments', 'shop']);
 
         // Apply the same filters as getTransactions
         if ($request->filled('router_id') && $request->input('router_id') != 0) {
