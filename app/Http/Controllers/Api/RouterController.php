@@ -12,26 +12,65 @@ use Illuminate\Support\Facades\Log;
 
 class RouterController extends Controller
 {
-    //
-    public function pushToRouter($voucherId)
+    /**
+     * Push an existing voucher (by DB id) to its assigned router.
+     * Orphan cleanup is handled inside MikroTikService::createHotspotUser.
+     */
+    public function pushToRouter($id)
     {
+        $voucher = Voucher::withTrashed()->with('router', 'package')->findOrFail($id);
+        $router  = $voucher->router;
 
-        $voucher = Voucher::withTrashed()->with('router', 'package')->findOrFail($voucherId);
-        $router = $voucher->router ?? RouterConfiguration::findOrFail($voucher->router_id);
+        if (!$router) {
+            return response()->json(['error' => 'No router is assigned to this voucher.'], 422);
+        }
 
         try {
-            if (config('app.env') != 'local') {
-                $mikrotik = new MikroTikService($router);
-                $mikrotik->createHotspotUser(
-                    $voucher->code,
-                    $voucher->code,
-                    $voucher->package->session_timeout,
-                    $voucher->package->profile_name,
-                );
-            }
+            $mikrotik = new MikroTikService($router);
+            $mikrotik->createHotspotUser(
+                $voucher->code,
+                $voucher->code,
+                $voucher->package->session_timeout,
+                $voucher->package->profile_name,
+            );
 
+            return response()->json(['message' => "Voucher {$voucher->code} pushed to {$router->name} successfully."]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Failed to push voucher: ' . $e->getMessage()], 500);
+        }
+    }
 
-            return response()->json(['message' => 'Voucher pushed to router']);
+    /**
+     * Push an existing voucher (by code string) to its assigned router.
+     * Used by the admin "Push to Router" form in the voucher management UI.
+     */
+    public function pushToRouterByCode(Request $request)
+    {
+        $request->validate(['code' => 'required|string']);
+
+        $code    = strtoupper(trim($request->code));
+        $voucher = Voucher::withTrashed()->with('router', 'package')->where('code', $code)->first();
+
+        if (!$voucher) {
+            return response()->json(['error' => "Voucher '{$code}' not found."], 404);
+        }
+
+        $router = $voucher->router;
+
+        if (!$router) {
+            return response()->json(['error' => 'No router is assigned to this voucher.'], 422);
+        }
+
+        try {
+            $mikrotik = new MikroTikService($router);
+            $mikrotik->createHotspotUser(
+                $voucher->code,
+                $voucher->code,
+                $voucher->package->session_timeout,
+                $voucher->package->profile_name,
+            );
+
+            return response()->json(['message' => "Voucher {$voucher->code} pushed to {$router->name} successfully."]);
         } catch (\Throwable $e) {
             return response()->json(['error' => 'Failed to push voucher: ' . $e->getMessage()], 500);
         }

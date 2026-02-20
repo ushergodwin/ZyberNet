@@ -88,6 +88,28 @@ class MikroTikService
                 return;
             }
 
+            // If an orphaned user with this code already exists on the router, remove it first
+            // so the new voucher starts with a clean slate (no accumulated uptime).
+            $checkQuery = new Query('/ip/hotspot/user/print');
+            $checkQuery->where('name', $username);
+            $existing = $this->client->query($checkQuery)->read();
+
+            if (!empty($existing)) {
+                $removeQuery = new Query('/ip/hotspot/user/remove');
+                $removeQuery->equal('.id', $existing[0]['.id']);
+                $this->client->query($removeQuery)->read();
+
+                RouterLog::create([
+                    'voucher_id' => $username,
+                    'action' => 'remove_orphan_hotspot_user',
+                    'success' => true,
+                    'message' => "Removed orphaned user $username from router {$this->router->name} before re-creating",
+                    'is_manual' => false,
+                    'router_name' => $this->router->name,
+                    'router_id' => $this->router->id ?? null,
+                ]);
+            }
+
             $query = new Query('/ip/hotspot/user/add');
             $query->equal('name', $username)
                 ->equal('password', $password)
@@ -122,6 +144,7 @@ class MikroTikService
                     'router_id' => $this->router->id ?? null,
                 ]);
             }
+            throw $th;
         }
     }
 
