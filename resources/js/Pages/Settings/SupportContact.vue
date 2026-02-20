@@ -167,13 +167,16 @@ onUnmounted(() => {
         <div class="d-flex justify-content-end align-items-center mt-3 mb-3">
             <!-- Router selection -->
             <section>
-                <div class="d-flex gap-3">
-                    <select class="form-select w-auto" v-model="state.selectedRouterId">
-                        <option :value="0">All Routers</option>
-                        <option v-for="router in state.routers" :key="router.id" :value="router.id">
-                            {{ router.name }}
-                        </option>
-                    </select>
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <select class="form-select w-auto" v-model="state.selectedRouterId"
+                            :disabled="state.loading">
+                            <option :value="0">All Routers</option>
+                            <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                {{ router.name }}
+                            </option>
+                        </select>
+                    </div>
                     <!-- add new support contact-->
                     <button class="btn btn-primary" @click="state.showAddContactModal = true"
                         v-if="hasPermission('create_support_contacts', state.currentUser?.permissions_list)">

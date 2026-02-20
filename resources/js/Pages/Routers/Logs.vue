@@ -114,15 +114,25 @@ onUnmounted(() => {
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h3">Router Logs</h4>
             <!-- Router selection -->
-            <select class="form-select w-auto" v-model="state.selectedRouterId">
-                <option :value="0">All Routers</option>
-                <option v-for="router in state.routers" :key="router.id" :value="router.id">
-                    {{ router.name }}
-                </option>
-            </select>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select w-auto" v-model="state.selectedRouterId"
+                    :disabled="state.loading || state.loadingRouters">
+                    <option :value="0">All Routers</option>
+                    <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                        {{ router.name }}
+                    </option>
+                </select>
+                <span v-show="state.loadingRouters" class="spinner-border spinner-border-sm text-secondary"></span>
+            </div>
         </div>
         <!-- Your page content here -->
-        <div class="card card-body shadow table-responsive" style="overflow-x: auto; max-width: 100%;">
+        <div class="card card-body shadow table-responsive position-relative" style="overflow-x: auto; max-width: 100%;">
+            <!-- Loading overlay -->
+            <div v-show="state.loading || state.loadingRouters"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10;">
+                <span class="spinner-border text-primary"></span>
+            </div>
             <table class="table table-striped" style="min-width: 1200px; width: auto;" v-if="state.routerLogs.length">
                 <thead>
                     <tr>
@@ -144,13 +154,6 @@ onUnmounted(() => {
                     </tr>
                 </tbody>
             </table>
-            <!-- Loading and error handling -->
-            <div v-if="state.loading" class="text-center my-3">
-                <i class="fas fa-spinner fa-spin"></i> Loading logs...
-            </div>
-            <div v-if="state.loadingRouters" class="text-center my-3">
-                <i class="fas fa-spinner fa-spin"></i> Loading routers...
-            </div>
             <div v-if="!state.routerLogs.length && !state.loading && !state.loadingRouters"
                 class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No router logs found." }}

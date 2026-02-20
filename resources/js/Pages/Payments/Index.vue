@@ -218,18 +218,21 @@ const generateVoucher = async (payment_id: number) => {
         <!-- Header & Router Select -->
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="h3">Payments/Transactions</h4>
-            <div class="form-group">
-                <select class="form-select" v-model="state.selectedRouterId">
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select" v-model="state.selectedRouterId"
+                    :disabled="state.loading || state.loadingRouters">
                     <option :value="0">All Routers</option>
                     <option v-for="router in state.routers" :key="router.id" :value="router.id">{{ router.name }}
                     </option>
                 </select>
+                <span v-show="state.loadingRouters" class="spinner-border spinner-border-sm text-secondary"></span>
             </div>
         </div>
 
         <!-- Filters -->
         <div class="d-flex gap-2 mb-3 align-items-center">
-            <select class="form-select w-auto" v-model="state.statusFilter" @change="applyFilters">
+            <select class="form-select w-auto" v-model="state.statusFilter" @change="applyFilters"
+                :disabled="state.loading">
                 <option value="">All Statuses</option>
                 <option value="new">New</option>
                 <option value="pending">Pending</option>
@@ -239,21 +242,28 @@ const generateVoucher = async (payment_id: number) => {
                 <option value="failed">Failed</option>
             </select>
 
-            <input type="text" id="dateFrom" class="form-control w-auto" placeholder="From Date">
-            <input type="text" id="dateTo" class="form-control w-auto" placeholder="To Date">
+            <input type="text" id="dateFrom" class="form-control w-auto" placeholder="From Date"
+                :disabled="state.loading">
+            <input type="text" id="dateTo" class="form-control w-auto" placeholder="To Date"
+                :disabled="state.loading">
 
-            <button class="btn btn-secondary"
+            <button class="btn btn-secondary" :disabled="state.loading"
                 @click="() => { state.statusFilter = ''; state.dateFrom = ''; state.dateTo = ''; applyFilters(); }">
                 Reset Filters
             </button>
-            <!-- fresh -->
-            <button class="btn btn-primary" @click="loadPayments(1)">
+            <button class="btn btn-primary" @click="loadPayments(1)" :disabled="state.loading">
                 <i class="fas fa-sync"></i> Refresh
             </button>
         </div>
 
         <!-- Payments Table -->
-        <div class="card card-body shadow table-responsive" style="overflow-x: auto; max-width: 100%;">
+        <div class="card card-body shadow table-responsive position-relative" style="overflow-x: auto; max-width: 100%;">
+            <!-- Loading overlay -->
+            <div v-show="state.loading || state.loadingRouters"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10;">
+                <span class="spinner-border text-primary"></span>
+            </div>
             <table class="table table-striped" style="min-width: 1200px; width: auto;" v-if="state.payments.length">
                 <thead>
                     <tr>
@@ -262,6 +272,7 @@ const generateVoucher = async (payment_id: number) => {
                         <th>Price (UGX)</th>
                         <th>Charge (UGX)</th>
                         <th>Amount Paid (UGX)</th>
+                        <th>Channel</th>
                         <th>Voucher</th>
                         <th>Status</th>
                         <th>Created</th>
@@ -275,6 +286,11 @@ const generateVoucher = async (payment_id: number) => {
                         <td>{{ payment.package?.formatted_price }}</td>
                         <td>-{{ payment.formatted_charge }}</td>
                         <td>{{ payment.formatted_amount }}</td>
+                        <td>
+                            <span v-if="payment.channel === 'mobile_money'" class="badge bg-primary">Mobile Money</span>
+                            <span v-else-if="payment.channel === 'cash'" class="badge bg-secondary">Cash</span>
+                            <span v-else class="text-muted">-</span>
+                        </td>
                         <td>{{ payment.voucher?.code }}</td>
                         <td>
                             <span :class="`badge bg-${payment.status === 'successful' ? 'success' : 'danger'}`">{{
@@ -298,10 +314,6 @@ const generateVoucher = async (payment_id: number) => {
                 </tbody>
             </table>
 
-            <div v-if="state.loadingRouters" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading
-                routers...</div>
-            <div v-if="state.loading" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading
-                transactions...</div>
             <div v-if="!state.payments.length && !state.loading && !state.loadingRouters"
                 class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No payments found." }}

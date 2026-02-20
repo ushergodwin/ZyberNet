@@ -110,24 +110,29 @@ const resetFilters = () => {
         <!-- Filters -->
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex gap-2 align-items-center">
-                <select v-model="state.selectedRouterId" class="form-select w-auto">
-                    <option :value="0">All Routers</option>
-                    <option v-for="router in state.routers" :key="router.id" :value="router.id">
-                        {{ router.name }}
-                    </option>
-                </select>
+                <div class="d-flex align-items-center gap-1">
+                    <select v-model="state.selectedRouterId" class="form-select w-auto"
+                        :disabled="state.isLoading || state.loadingRouters">
+                        <option :value="0">All Routers</option>
+                        <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                            {{ router.name }}
+                        </option>
+                    </select>
+                    <span v-show="state.loadingRouters" class="spinner-border spinner-border-sm text-secondary"></span>
+                </div>
 
                 <input type="text" id="dateFrom" class="form-control w-auto" placeholder="From Date"
-                    :disabled="state.allTime" />
+                    :disabled="state.allTime || state.isLoading" />
                 <input type="text" id="dateTo" class="form-control w-auto" placeholder="To Date"
-                    :disabled="state.allTime" />
+                    :disabled="state.allTime || state.isLoading" />
 
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="allTimeCheck" v-model="state.allTime">
+                    <input class="form-check-input" type="checkbox" id="allTimeCheck" v-model="state.allTime"
+                        :disabled="state.isLoading">
                     <label class="form-check-label" for="allTimeCheck">All Time</label>
                 </div>
 
-                <button class="btn btn-secondary btn-sm" @click="resetFilters">
+                <button class="btn btn-secondary btn-sm" @click="resetFilters" :disabled="state.isLoading">
                     Reset
                 </button>
             </div>

@@ -535,11 +535,16 @@ const pushToRouterByCode = () => {
             <section>
                 <div class="d-flex gap-3 flex-wrap">
                     <!-- Router Selection -->
-                    <select v-model="state.selectedRouterId" class="form-select w-auto">
-                        <option :value="0">All Routers</option>
-                        <option v-for="router in state.routers" :key="router.id" :value="router.id">{{ router.name }}
-                        </option>
-                    </select>
+                    <div class="d-flex align-items-center gap-2">
+                        <select v-model="state.selectedRouterId" class="form-select w-auto"
+                            :disabled="state.loading || state.loadingRouters">
+                            <option :value="0">All Routers</option>
+                            <option v-for="router in state.routers" :key="router.id" :value="router.id">
+                                {{ router.name }}
+                            </option>
+                        </select>
+                        <i class="fas fa-spinner fa-spin text-muted" v-show="state.loadingRouters || state.loading"></i>
+                    </div>
                 </div>
             </section>
         </div>
@@ -549,7 +554,7 @@ const pushToRouterByCode = () => {
                 <div class="d-flex gap-3 flex-wrap">
                     <!-- Search / Status Filter -->
                     <select class="form-select w-auto" v-model="state.searchQuery"
-                        @change="handleSearch(state.searchQuery)">
+                        @change="handleSearch(state.searchQuery)" :disabled="state.loading">
                         <option value="">All Vouchers</option>
                         <option value="activated:Y">Activated</option>
                         <option value="activated:N">Not Activated</option>
@@ -558,12 +563,14 @@ const pushToRouterByCode = () => {
                     </select>
 
                     <!-- From Date -->
-                    <input type="text" ref="dateFromRef" class="form-control w-auto" placeholder="From Date" readonly />
+                    <input type="text" ref="dateFromRef" class="form-control w-auto" placeholder="From Date" readonly
+                        :disabled="state.loading" />
                     <!-- To Date -->
-                    <input type="text" ref="dateToRef" class="form-control w-auto" placeholder="To Date" readonly />
+                    <input type="text" ref="dateToRef" class="form-control w-auto" placeholder="To Date" readonly
+                        :disabled="state.loading" />
 
                     <!-- Reset Filter -->
-                    <button class="btn btn-secondary" @click="handleSearch('clear_filter')">
+                    <button class="btn btn-secondary" @click="handleSearch('clear_filter')" :disabled="state.loading">
                         Clear Filters
                     </button>
                     <button class="btn btn-primary" @click="state.showCreateModal = true"
@@ -583,13 +590,28 @@ const pushToRouterByCode = () => {
         </div>
 
         <!-- Vouchers Table -->
-        <div class="card card-body shadow table-responsive" style="overflow-x: auto; max-width: 100%;">
+        <div class="card card-body shadow table-responsive position-relative"
+            style="overflow-x: auto; max-width: 100%;">
+
+            <!-- Loading overlay — sits above stale rows while fetching -->
+            <div v-show="state.loading || state.loadingRouters"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10; min-height: 80px;">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                    <div class="mt-2 text-muted small">
+                        {{ state.loadingRouters ? 'Loading routers…' : 'Loading vouchers…' }}
+                    </div>
+                </div>
+            </div>
+
             <table class="table table-striped" style="min-width: 1200px; width: auto;" v-if="state.vouchers.length">
                 <thead>
                     <tr>
                         <th>Code</th>
                         <th>Package</th>
                         <th>Amount (UGX)</th>
+                        <th>Channel</th>
                         <th>Activated</th>
                         <th>Status</th>
                         <th class="d-flex gap-2">Actions
@@ -608,6 +630,11 @@ const pushToRouterByCode = () => {
                         <td>{{ voucher.package.name }}</td>
                         <td>{{ number_format(voucher.package.price) }}</td>
                         <td>
+                            <span v-if="voucher.gateway === 'yopayments'" class="badge bg-primary">Mobile Money</span>
+                            <span v-else-if="voucher.gateway === 'shop'" class="badge bg-secondary">Shop</span>
+                            <span v-else class="text-muted">-</span>
+                        </td>
+                        <td>
                             <div v-if="voucher.activated_at">
                                 <span class="badge bg-success">Y</span> {{ voucher.activated_at_time }}
                             </div>
@@ -623,16 +650,11 @@ const pushToRouterByCode = () => {
                         </td>
                         <td>
                             <div class="d-flex gap-3">
-                                <a href="#" @click.prevent="getVoucherTransaction(voucher)" class="text-primary"><i
-                                        class="fas fa-credit-card"></i></a>
                                 <a href="#" v-if="hasPermission('print_vouchers', state.currentUser?.permissions_list)"
                                     @click.prevent="printSingleVoucher(voucher)" class="text-info"><i
                                         class="fas fa-print"></i></a>
-                                <a href="#"
-                                    v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)"
-                                    @click.prevent="pushToRouter(voucher)"
-                                    class="text-warning"
-                                    title="Push to Router">
+                                <a href="#" v-if="hasPermission('create_vouchers', state.currentUser?.permissions_list)"
+                                    @click.prevent="pushToRouter(voucher)" class="text-warning" title="Push to Router">
                                     <i class="fas fa-wifi"></i>
                                 </a>
                                 <a href="#" v-if="hasPermission('delete_vouchers', state.currentUser?.permissions_list)"
@@ -650,10 +672,6 @@ const pushToRouterByCode = () => {
                 </tbody>
             </table>
 
-            <div v-if="state.loading" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i> Loading
-                vouchers...</div>
-            <div v-if="state.loadingRouters" class="text-center my-3"><i class="fas fa-spinner fa-spin"></i>
-                Loading routers...</div>
             <div v-if="!state.vouchers.length && !state.loading && !state.loadingRouters"
                 class="text-danger text-center my-3">
                 <i class="fas fa-exclamation-triangle"></i> {{ state.error || "No vouchers found." }}
@@ -697,15 +715,13 @@ const pushToRouterByCode = () => {
                         <!-- Tab Pills -->
                         <ul class="nav nav-pills mb-4">
                             <li class="nav-item">
-                                <button class="nav-link"
-                                    :class="{ active: state.createModalTab === 'generate' }"
+                                <button class="nav-link" :class="{ active: state.createModalTab === 'generate' }"
                                     @click="state.createModalTab = 'generate'">
                                     <i class="fas fa-plus me-1"></i> Generate Batch
                                 </button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link"
-                                    :class="{ active: state.createModalTab === 'push' }"
+                                <button class="nav-link" :class="{ active: state.createModalTab === 'push' }"
                                     @click="state.createModalTab = 'push'">
                                     <i class="fas fa-wifi me-1"></i> Push to Router
                                 </button>
@@ -769,17 +785,10 @@ const pushToRouterByCode = () => {
                                 showing "uptime limit reached" — the router entry will be deleted and recreated fresh.
                             </p>
                             <div class="input-group">
-                                <input
-                                    type="text"
-                                    v-model="state.pushCodeInput"
-                                    class="form-control"
-                                    placeholder="Enter voucher code…"
-                                    @keyup.enter="pushToRouterByCode"
-                                    style="text-transform:uppercase"
-                                />
-                                <button
-                                    class="btn btn-warning"
-                                    @click="pushToRouterByCode"
+                                <input type="text" v-model="state.pushCodeInput" class="form-control"
+                                    placeholder="Enter voucher code…" @keyup.enter="pushToRouterByCode"
+                                    style="text-transform:uppercase" />
+                                <button class="btn btn-warning" @click="pushToRouterByCode"
                                     :disabled="!state.pushCodeInput.trim()">
                                     <i class="fas fa-wifi"></i>
                                     Push
