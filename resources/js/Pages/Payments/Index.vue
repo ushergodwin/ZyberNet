@@ -97,6 +97,7 @@ const loadRouters = () => {
             loadPayments(1);
         })
         .catch(error => {
+            state.loadingRouters = false;
             swalNotification('error', error.response?.data?.message || 'Failed to load routers.');
             console.error("Failed to load routers:", error);
         });
@@ -259,7 +260,7 @@ const generateVoucher = async (payment_id: number) => {
         <!-- Payments Table -->
         <div class="card card-body shadow table-responsive position-relative" style="overflow-x: auto; max-width: 100%;">
             <!-- Loading overlay -->
-            <div v-show="state.loading || state.loadingRouters"
+            <div v-if="state.loading || state.loadingRouters"
                 class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
                 style="background: rgba(255,255,255,0.65); z-index: 10;">
                 <span class="spinner-border text-primary"></span>

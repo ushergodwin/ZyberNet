@@ -594,7 +594,7 @@ const pushToRouterByCode = () => {
             style="overflow-x: auto; max-width: 100%;">
 
             <!-- Loading overlay — sits above stale rows while fetching -->
-            <div v-show="state.loading || state.loadingRouters"
+            <div v-if="state.loading || state.loadingRouters"
                 class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
                 style="background: rgba(255,255,255,0.65); z-index: 10; min-height: 80px;">
                 <div class="text-center">

@@ -41,8 +41,9 @@ const getDashboardStats = async () => {
 
         const response = await axios.get(url);
         state.stats = response.data;
-        setTimeout(() => state.isLoading = false, 1000);
+        state.isLoading = false;
     } catch (error) {
+        state.isLoading = false;
         console.error('Failed to fetch dashboard stats:', error);
     }
 };
@@ -58,6 +59,7 @@ const loadRouters = async () => {
         }
         state.loadingRouters = false;
     } catch (error) {
+        state.loadingRouters = false;
         console.error('Failed to load routers:', error);
     }
 };
@@ -138,41 +140,45 @@ const resetFilters = () => {
             </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div v-if="!state.isLoading && !state.loadingRouters" class="row">
-            <div class="col-md-3 mb-3" v-for="key in Object.keys(state.stats)" :key="key">
-                <div class="card bg-light text-dark p-3"
-                    v-if="key !== 'top_profiles_by_user_count' && state.stats[key] !== undefined">
-                    <h5>{{ capitalize(key) }}</h5>
-                    <p class="h4 mb-0">{{ state.stats[key] }}</p>
+        <!-- Stats Content -->
+        <div class="position-relative" style="min-height: 120px;">
+            <!-- Loading overlay -->
+            <div v-if="state.isLoading || state.loadingRouters"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="background: rgba(255,255,255,0.65); z-index: 10; min-height: 120px;">
+                <span class="spinner-border text-primary"></span>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row">
+                <div class="col-md-3 mb-3" v-for="key in Object.keys(state.stats)" :key="key">
+                    <div class="card bg-light text-dark p-3"
+                        v-if="key !== 'top_profiles_by_user_count' && state.stats[key] !== undefined">
+                        <h5>{{ capitalize(key) }}</h5>
+                        <p class="h4 mb-0">{{ state.stats[key] }}</p>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div v-if="state.isLoading" class="alert alert-info">
-            <span class="spinner-border spinner-border-sm text-primary me-2"></span> Loading dashboard stats...
-        </div>
-        <div v-if="state.loadingRouters" class="alert alert-info">
-            <span class="spinner-border spinner-border-sm text-primary me-2"></span> Loading routers...
-        </div>
-        <!-- Top Profiles -->
-        <div v-if="state.stats.top_profiles_by_user_count && Object.keys(state.stats.top_profiles_by_user_count).length && !state.isLoading"
-            class="mt-4">
-            <h5>Top Profiles by User Count</h5>
-            <table class="table table-sm table-bordered">
-                <thead>
-                    <tr>
-                        <th>Profile</th>
-                        <th>User Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="(count, profile) in state.stats.top_profiles_by_user_count" :key="profile">
-                        <td>{{ profile }}</td>
-                        <td>{{ count }}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <!-- Top Profiles -->
+            <div v-if="state.stats.top_profiles_by_user_count && Object.keys(state.stats.top_profiles_by_user_count).length"
+                class="mt-4">
+                <h5>Top Profiles by User Count</h5>
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Profile</th>
+                            <th>User Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(count, profile) in state.stats.top_profiles_by_user_count" :key="profile">
+                            <td>{{ profile }}</td>
+                            <td>{{ count }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
     </section>
