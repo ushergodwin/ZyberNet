@@ -148,7 +148,7 @@ class PaymentController extends Controller
             'per_page' => 'nullable|integer|min:10|max:500',
         ]);
 
-        $query = Transaction::with(['package', 'voucher'])->where('gateway', 'yopayments');
+        $query = Transaction::with(['package', 'voucher'])->whereIn('gateway', ['yopayments', 'cash']);
 
         // Apply router filter
         if ($request->filled('router_id') && $request->input('router_id') != 0) {

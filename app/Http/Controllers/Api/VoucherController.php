@@ -30,7 +30,7 @@ class VoucherController extends Controller
         $dateTo     = $request->input('date_to');   // optional, format: Y-m-d
 
         $vouchers = Voucher::query()
-            ->where(fn($q) => $q->whereNull('gateway')->orWhere('gateway', '!=', 'cinemaug'))
+            ->where(fn($q) => $q->whereIn('gateway', ['shop', 'yopayments']))
             ->when($routerId, fn($q) => $q->where('router_id', $routerId))
             ->when($searchTerm, fn($q) => $this->applySearchFilter($q, $searchTerm))
             ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
@@ -70,7 +70,10 @@ class VoucherController extends Controller
             return response()->json(['message' => 'You are not authorized to view vouchers. Please contact system admin.'], 401);
         }
         $voucher = Voucher::with('package')->with('transaction')
-            ->with('transaction.package')->findOrFail($id);
+            ->with('transaction.package')
+            ->whereIN('gateway', ['shop', 'yopayments'])
+            ->findOrFail($id);
+
         return response()->json($voucher);
     }
 
