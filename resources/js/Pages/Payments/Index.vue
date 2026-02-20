@@ -272,6 +272,7 @@ const generateVoucher = async (payment_id: number) => {
                         <th>Price (UGX)</th>
                         <th>Charge (UGX)</th>
                         <th>Amount Paid (UGX)</th>
+                        <th>Channel</th>
                         <th>Voucher</th>
                         <th>Status</th>
                         <th>Created</th>
@@ -285,6 +286,11 @@ const generateVoucher = async (payment_id: number) => {
                         <td>{{ payment.package?.formatted_price }}</td>
                         <td>-{{ payment.formatted_charge }}</td>
                         <td>{{ payment.formatted_amount }}</td>
+                        <td>
+                            <span v-if="payment.channel === 'mobile_money'" class="badge bg-primary">Mobile Money</span>
+                            <span v-else-if="payment.channel === 'cash'" class="badge bg-secondary">Cash</span>
+                            <span v-else class="text-muted">-</span>
+                        </td>
                         <td>{{ payment.voucher?.code }}</td>
                         <td>
                             <span :class="`badge bg-${payment.status === 'successful' ? 'success' : 'danger'}`">{{

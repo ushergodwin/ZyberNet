@@ -611,6 +611,7 @@ const pushToRouterByCode = () => {
                         <th>Code</th>
                         <th>Package</th>
                         <th>Amount (UGX)</th>
+                        <th>Channel</th>
                         <th>Activated</th>
                         <th>Status</th>
                         <th class="d-flex gap-2">Actions
@@ -628,6 +629,11 @@ const pushToRouterByCode = () => {
                         <td>{{ voucher.code }}</td>
                         <td>{{ voucher.package.name }}</td>
                         <td>{{ number_format(voucher.package.price) }}</td>
+                        <td>
+                            <span v-if="voucher.gateway === 'yopayments'" class="badge bg-primary">Mobile Money</span>
+                            <span v-else-if="voucher.gateway === 'shop'" class="badge bg-secondary">Shop</span>
+                            <span v-else class="text-muted">-</span>
+                        </td>
                         <td>
                             <div v-if="voucher.activated_at">
                                 <span class="badge bg-success">Y</span> {{ voucher.activated_at_time }}
