@@ -15,7 +15,7 @@ if [ -z "$PEER_NAME" ]; then
 fi
 
 # Detect server public IP
-SERVER_PUBLIC_IP=$(curl -s https://ipinfo.io/ip)
+SERVER_PUBLIC_IP=$(hostname -I | awk '{print $1}')
 if [[ -z "$SERVER_PUBLIC_IP" ]]; then
   echo '{"error":"Could not detect server public IP"}'
   exit 1

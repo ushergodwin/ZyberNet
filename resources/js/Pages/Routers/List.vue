@@ -216,6 +216,41 @@ const instructionLabels: Record<string, string> = {
     firewall_forward_out: "Allow WG Forward Out",
 };
 
+function downloadHotspotHtml(routerId: number) {
+    const html =
+        `<html>
+<title>WiFi Hotspot</title>
+<body>
+<form name="redirect" action="https://hotspot.superspotwifi.net/connect" method="get">
+<input type="hidden" name="mac" value="$(mac)">
+<input type="hidden" name="ip" value="$(ip)">
+<input type="hidden" name="username" value="$(username)">
+<input type="hidden" name="link-login" value="$(link-login)">
+<input type="hidden" name="link-login-only" value="$(link-login-only)">
+<input type="hidden" name="link-orig" value="$(link-orig)">
+<input type="hidden" name="error" value="$(error)">
+<input type="hidden" name="router_id" value="${routerId}">
+</form>
+<script language="JavaScript">
+<!--
+document.redirect.submit();
+//-->
+<\/script>
+</body>
+
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'login.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function submitForm() {
     showLoader(isEdit.value ? "Updating..." : "Saving...");
     if (isEdit.value) {
@@ -237,6 +272,7 @@ function submitForm() {
                 hideLoader();
                 swalNotification("success", "Router added successfully");
                 routers.value.unshift(res.data.configuration);
+                downloadHotspotHtml(res.data.configuration.id);
                 closeModal();
             })
             .catch((err: any) => {
@@ -307,6 +343,7 @@ onMounted(() => {
 
 <template>
     <section class="container-fluid">
+
         <Head title="Router Configuration" />
         <div class="d-flex justify-content-between mt-2 py-1">
             <h4 class="fw-bold">Router Configurations</h4>
@@ -386,13 +423,12 @@ onMounted(() => {
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Port</label>
-                                <input v-model.number="form.port" type="number" class="form-control" required
-                                    min="1" />
+                                <input v-model.number="form.port" type="number" class="form-control" required min="1" />
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Username</label>
-                                <input v-model="form.username" type="text" class="form-control" required
-                                    maxlength="100" autocomplete="off" />
+                                <input v-model="form.username" type="text" class="form-control" required maxlength="100"
+                                    autocomplete="off" />
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Password</label>
@@ -452,22 +488,18 @@ onMounted(() => {
                                         placeholder="e.g. hotel-lobby" maxlength="100" />
                                     <small class="text-muted">Use lowercase letters, numbers, and hyphens only</small>
                                 </div>
-                                <button class="btn btn-primary w-100" @click="autoCreatePeer"
-                                    :disabled="wgLoading">
-                                    <span v-if="wgLoading"
-                                        class="spinner-border spinner-border-sm me-1"></span>
+                                <button class="btn btn-primary w-100" @click="autoCreatePeer" :disabled="wgLoading">
+                                    <span v-if="wgLoading" class="spinner-border spinner-border-sm me-1"></span>
                                     <i v-else class="fas fa-plus me-1"></i>
                                     Create WireGuard Peer
                                 </button>
 
                                 <hr class="my-3" />
                                 <div class="d-flex justify-content-between">
-                                    <button class="btn btn-link text-muted btn-sm p-0"
-                                        @click="wgManualMode = true">
+                                    <button class="btn btn-link text-muted btn-sm p-0" @click="wgManualMode = true">
                                         I'll add the peer manually
                                     </button>
-                                    <button class="btn btn-link text-muted btn-sm p-0"
-                                        @click="skipWireguard">
+                                    <button class="btn btn-link text-muted btn-sm p-0" @click="skipWireguard">
                                         Skip (no VPN needed)
                                     </button>
                                 </div>
@@ -483,12 +515,10 @@ onMounted(() => {
                                         Linux, Ubuntu 22, and shell commands before proceeding.</p>
                                 </div>
                                 <div class="d-flex gap-2">
-                                    <button class="btn btn-primary"
-                                        @click="wgManualConfirmed = true">
+                                    <button class="btn btn-primary" @click="wgManualConfirmed = true">
                                         Yes, I'm familiar - continue
                                     </button>
-                                    <button class="btn btn-outline-secondary"
-                                        @click="wgManualMode = false">
+                                    <button class="btn btn-outline-secondary" @click="wgManualMode = false">
                                         Go back
                                     </button>
                                 </div>
@@ -514,15 +544,12 @@ onMounted(() => {
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Paste the JSON output below:</label>
-                                    <textarea v-model="wgPastedJson" class="form-control font-monospace"
-                                        rows="6"
+                                    <textarea v-model="wgPastedJson" class="form-control font-monospace" rows="6"
                                         placeholder='{"peer_name": "...", "peer_ip": "...", ...}'></textarea>
                                 </div>
                                 <div class="d-flex gap-2">
-                                    <button class="btn btn-primary" @click="parseManualOutput"
-                                        :disabled="wgLoading">
-                                        <span v-if="wgLoading"
-                                            class="spinner-border spinner-border-sm me-1"></span>
+                                    <button class="btn btn-primary" @click="parseManualOutput" :disabled="wgLoading">
+                                        <span v-if="wgLoading" class="spinner-border spinner-border-sm me-1"></span>
                                         Parse & Continue
                                     </button>
                                     <button class="btn btn-outline-secondary"
@@ -535,24 +562,69 @@ onMounted(() => {
 
                         <!-- STEP 2: MikroTik Configuration -->
                         <div v-if="wizardStep === 2 && wireguardData">
-                            <p class="text-muted mb-3">Run these commands on your MikroTik router (via
-                                Winbox terminal or SSH).</p>
+                            <!-- VPN summary -->
+                            <div class="alert alert-success py-2 mb-3">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>WireGuard peer created.</strong> Save the details below before continuing.
+                            </div>
+                            <div class="card bg-light border-0 mb-3">
+                                <div class="card-body py-2 px-3">
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Peer Name</small>
+                                            <span class="fw-semibold">{{ wireguardData.peer_name }}</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Tunnel IP</small>
+                                            <span class="fw-semibold">{{ wireguardData.peer_ip }}</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Server Public IP</small>
+                                            <span class="fw-semibold">{{ wireguardData.server_public_ip }}</span>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted d-block">Server Port</small>
+                                            <span class="fw-semibold">{{ wireguardData.server_port }}</span>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted d-block">MikroTik Port</small>
+                                            <span class="fw-semibold">{{ wireguardData.mikrotik_listen_port }}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block">
+                                            Peer Private Key
+                                            <span class="text-warning fw-semibold ms-1"><i
+                                                    class="fas fa-exclamation-triangle"></i> Save this — it won't be
+                                                shown again</span>
+                                        </small>
+                                        <div class="d-flex align-items-center gap-2 mt-1">
+                                            <code class="flex-grow-1 bg-white border rounded p-1"
+                                                style="font-size: 0.75rem; word-break: break-all;">{{ wireguardData.peer_private_key }}</code>
+                                            <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                                                @click="copyText(wireguardData?.peer_private_key)" title="Copy key">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
+                            <!-- MikroTik commands -->
+                            <p class="text-muted mb-2 small">Run these commands on your MikroTik router (via Winbox
+                                terminal or SSH).</p>
                             <div class="d-flex justify-content-end mb-2">
                                 <button class="btn btn-outline-primary btn-sm" @click="copyAllCommands">
                                     <i class="fas fa-copy me-1"></i> Copy All Commands
                                 </button>
                             </div>
-
                             <div class="mikrotik-commands">
-                                <div v-for="(cmd, key) in wireguardData.mikrotik_instructions" :key="key"
-                                    class="mb-2">
+                                <div v-for="(cmd, key) in wireguardData.mikrotik_instructions" :key="key" class="mb-2">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <small class="text-muted fw-semibold">{{
                                             instructionLabels[key] || key
-                                        }}</small>
-                                        <button class="btn btn-sm btn-link p-0" @click="copyText(cmd)"
-                                            title="Copy">
+                                            }}</small>
+                                        <button class="btn btn-sm btn-link p-0" @click="copyText(cmd)" title="Copy">
                                             <i class="fas fa-copy"></i>
                                         </button>
                                     </div>
@@ -584,8 +656,8 @@ onMounted(() => {
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">API Port</label>
-                                    <input v-model.number="form.port" type="number" class="form-control"
-                                        required min="1" />
+                                    <input v-model.number="form.port" type="number" class="form-control" required
+                                        min="1" />
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">API Username</label>
@@ -608,12 +680,10 @@ onMounted(() => {
                             @click="wizardStep--">
                             <i class="fas fa-arrow-left me-1"></i> Back
                         </button>
-                        <button v-if="wizardStep === 2" type="button" class="btn btn-primary"
-                            @click="wizardStep = 3">
+                        <button v-if="wizardStep === 2" type="button" class="btn btn-primary" @click="wizardStep = 3">
                             I've configured the router <i class="fas fa-arrow-right ms-1"></i>
                         </button>
-                        <button v-if="wizardStep === 3" type="submit" form="routerForm"
-                            class="btn btn-success">
+                        <button v-if="wizardStep === 3" type="submit" form="routerForm" class="btn btn-success">
                             <i class="fas fa-save me-1"></i> Save Router
                         </button>
                     </div>
