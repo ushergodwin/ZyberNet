@@ -22,6 +22,7 @@ class CheckPendingTransactions extends Command
             Transaction::whereIn('status', ['new', 'instructions_sent', 'pending', 'processing_started'])
                 ->where('package_id', '!=', null)
                 ->where('amount', '>', 0)
+                ->whereNotNull('payment_id')
                 ->with('package'),
             'pending'
         );
@@ -31,6 +32,7 @@ class CheckPendingTransactions extends Command
             Transaction::where('status', 'successful')
                 ->where('package_id', '!=', null)
                 ->where('amount', '>', 0)
+                ->whereNotNull('payment_id')
                 ->whereDoesntHave('voucher')
                 ->with('package'),
             'successful_without_voucher'
@@ -67,6 +69,11 @@ class CheckPendingTransactions extends Command
      */
     protected function handleVoucher(Transaction $transaction)
     {
+        if (is_null($transaction->payment_id)) {
+            $this->warn("Skipping transaction {$transaction->id}: no payment_id.");
+            return;
+        }
+
         $this->info("Checking transaction ID: {$transaction->payment_id}");
 
         try {
