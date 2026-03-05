@@ -32,6 +32,7 @@ class WireguardController extends Controller
             ]);
 
             $process->setTimeout(60);
+            $process->setPty(true);
             $process->run();
 
             if (!$process->isSuccessful()) {
