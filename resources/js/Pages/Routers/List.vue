@@ -50,6 +50,9 @@ const form = reactive<RouterConfig>({
     password: "",
 });
 
+// Connection status per router id
+const connectionStatus = ref<Record<number, 'testing' | 'success' | 'failed'>>({});
+
 // Wizard state
 const wizardStep = ref(1);
 const wireguardData = ref<WireguardData | null>(null);
@@ -74,6 +77,7 @@ const fetchRouters = () => {
             if (page.value >= lastPage.value) hasMore.value = false;
             else page.value++;
             loading.value = false;
+            paginated.data.forEach(r => testRouterConnection(r.id, true));
         })
         .catch((err: any) => {
             swalNotification("error", err.response?.data?.message || "Failed to load routers.");
@@ -314,20 +318,27 @@ function onScroll(e: Event) {
     }
 }
 
-function testRouterConnection(id: number) {
-    showLoader("Testing connection...");
+function testRouterConnection(id: number, silent = false) {
+    connectionStatus.value[id] = 'testing';
+    if (!silent) showLoader("Testing connection...");
     axios.post(`/api/configuration/routers/${id}/test`)
         .then((res: any) => {
-            hideLoader();
-            if (res.status === 200) {
-                swalNotification("success", "Router connection successful.");
-            } else {
-                swalNotification("error", res.data?.error || "Failed to connect to router.");
+            connectionStatus.value[id] = res.status === 200 ? 'success' : 'failed';
+            if (!silent) {
+                hideLoader();
+                if (res.status === 200) {
+                    swalNotification("success", "Router connection successful.");
+                } else {
+                    swalNotification("error", res.data?.error || "Failed to connect to router.");
+                }
             }
         })
         .catch(() => {
-            hideLoader();
-            swalNotification("error", "Failed to connect to router.");
+            connectionStatus.value[id] = 'failed';
+            if (!silent) {
+                hideLoader();
+                swalNotification("error", "Failed to connect to router.");
+            }
         });
 }
 
@@ -385,9 +396,15 @@ onMounted(() => {
                                     v-if="hasPermission('delete_router', state.currentUser?.permissions_list)">
                                     <i class="fas fa-trash"></i>
                                 </a>
-                                <a href="#" class="text-success" @click.prevent="testRouterConnection(router.id)"
-                                    v-if="hasPermission('test_connection', state.currentUser?.permissions_list)">
-                                    <i class="fas fa-plug"></i>
+                                <a href="#" @click.prevent="testRouterConnection(router.id)"
+                                    v-if="hasPermission('test_connection', state.currentUser?.permissions_list)"
+                                    :title="connectionStatus[router.id] === 'success' ? 'Connected' : connectionStatus[router.id] === 'failed' ? 'Connection failed' : 'Test connection'">
+                                    <span v-if="connectionStatus[router.id] === 'testing'"
+                                        class="spinner-border spinner-border-sm text-secondary"
+                                        style="width: 14px; height: 14px;"></span>
+                                    <i v-else-if="connectionStatus[router.id] === 'success'" class="fas fa-plug text-success"></i>
+                                    <i v-else-if="connectionStatus[router.id] === 'failed'" class="fas fa-plug text-danger"></i>
+                                    <i v-else class="fas fa-plug text-secondary"></i>
                                 </a>
                             </div>
                         </td>
