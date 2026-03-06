@@ -22,7 +22,9 @@ class RolePermissionController extends Controller
     // Get all permissions
     public function permissions()
     {
-        $permissions = Permission::all();
+        $permissions = Permission::when(app()->isProduction(), function ($query) {
+            $query->where('name', '!=', 'test_payments');
+        })->get();
         return response()->json($permissions);
     }
 
