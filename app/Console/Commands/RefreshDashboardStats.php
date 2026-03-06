@@ -94,7 +94,13 @@ class RefreshDashboardStats extends Command
 
         return [
             'total_vouchers' => $voucherBase->count(),
-            'activated_vouchers' => (clone $voucherBase)->whereNotNull('activated_at')->count(),
+            'activated_vouchers' => (clone $voucherBase)
+                ->whereNotNull('activated_at')
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', now());
+                })
+                ->count(),
             'expired_vouchers' => (clone $voucherBase)->where('expires_at', '<', now())->count(),
             'total_packages' => VoucherPackage::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
             'transactions' => Transaction::when($routerId, fn($q) => $q->where('router_id', $routerId))
