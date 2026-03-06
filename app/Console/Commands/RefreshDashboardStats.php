@@ -36,6 +36,14 @@ class RefreshDashboardStats extends Command
                     if ($router) {
                         $routerStats = $this->fetchRouterStats($router);
                         $stats = array_merge($stats, $routerStats);
+
+                        // Cap online_users at activated_vouchers to exclude CinemaUG users
+                        if (isset($stats['online_users'], $stats['activated_vouchers'])) {
+                            $stats['online_users'] = min(
+                                (int) $stats['online_users'],
+                                (int) $stats['activated_vouchers']
+                            );
+                        }
                     }
                 }
 
@@ -78,13 +86,15 @@ class RefreshDashboardStats extends Command
 
         $fmt = fn($n) => number_format((float) $n, 2, '.', ',');
 
-        // Vouchers
+        // Vouchers — only shop + yopayments (CinemaUG is tracked externally)
         $voucherBase = Voucher::withTrashed()
+            ->whereIn('gateway', ['yopayments', 'shop'])
             ->when($routerId, fn($q) => $q->where('router_id', $routerId))
             ->when(!$allTime, fn($q) => $q->whereBetween('created_at', [$start, $end]));
 
         return [
             'total_vouchers' => $voucherBase->count(),
+            'activated_vouchers' => (clone $voucherBase)->whereNotNull('activated_at')->count(),
             'expired_vouchers' => (clone $voucherBase)->where('expires_at', '<', now())->count(),
             'total_packages' => VoucherPackage::when($routerId, fn($q) => $q->where('router_id', $routerId))->count(),
             'transactions' => Transaction::when($routerId, fn($q) => $q->where('router_id', $routerId))
